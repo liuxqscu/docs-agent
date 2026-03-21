@@ -15,6 +15,7 @@ target/
 
 ### IntelliJ IDEA ###
 .idea
+.qoder/
 *.iws
 *.iml
 *.ipr
@@ -31,3 +32,22 @@ build/
 
 ### VS Code ###
 .vscode/
+
+### Local runtime and packaging artifacts ###
+dist/
+installer/DocsAgent/runtime/
+release/
+release/DocsAgent-1.0.0/docs-agent-0.0.1-SNAPSHOT.jar
+
+### Optional project docs (can be added later) ###
+PARAGRAPH_REFACTOR_PLAN.md
+PHASE2_SEMANTIC_REGRESSION_REPORT.md
+
+### Local certificates and secrets ###
+keystore.p12
+*.pfx
+*.p12
+
+### JVM crash logs ###
+hs_err_pid*.log
+replay_pid*.log
