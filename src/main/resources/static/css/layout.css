@@ -1,0 +1,611 @@
+/* ========== 全局重置和基础样式 ========== */
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+    display: flex;
+    height: 100vh;
+    background: var(--bg-color);
+    color: var(--text-color);
+    transition: var(--transition);
+    overflow: hidden;
+    line-height: 1.6;
+    min-width: 320px; /* 防止过小屏幕导致布局崩溃 */
+}
+
+/* 单栏模式 */
+body.single-column {
+    flex-direction: column;
+    height: auto;
+    min-height: 100vh;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+body.single-column .panel {
+    width: 100% !important;
+    max-width: 100%;
+    height: auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+body.single-column .left-panel,
+body.single-column .right-panel {
+    border-right: none;
+    border-bottom: 1px solid var(--border-color);
+    height: auto;
+    min-height: 400px;
+    width: 100%;
+    max-width: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+body.single-column .right-panel {
+    border-bottom: none;
+}
+
+body.single-column .resizer {
+    display: none;
+}
+
+/* 左侧面板内容区（聊天和参考资料） - 可扩展高度 */
+body.single-column .left-panel-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+
+/* 聊天历史区域 - 固定最小高度，内容多时可扩展并滚动 */
+body.single-column .chat-history {
+    flex: 1; /* 占据所有可用空间 */
+    overflow-y: auto;
+    min-height: 400px; /* 提高最小高度 */
+    max-height: 65vh; /* 增加最大高度占比 */
+}
+
+/* 右侧面板 - 文档预览布局 */
+body.single-column .right-panel {
+    min-height: 400px;
+}
+
+body.single-column .right-panel-header {
+    flex-shrink: 0;
+}
+
+/* 文档预览内容区域 - 固定最小高度，内容多时可扩展并滚动 */
+body.single-column #documentContainer {
+    flex: 1;
+    overflow-y: auto;
+    min-height: 300px;
+    max-height: 60vh;
+}
+
+/* 批量操作按钮容器 - 固定在底部 */
+body.single-column .batch-actions-container {
+    flex-shrink: 0;
+}
+
+/* 双栏模式优化 - 确保完整显示 */
+body:not(.single-column) {
+    min-width: 800px; /* 双栏模式最小宽度，避免挤压 */
+}
+
+body:not(.single-column) .left-panel {
+    min-width: 350px;
+}
+
+body:not(.single-column) .right-panel {
+    min-width: 350px;
+}
+
+/* 单栏模式响应式优化 - 随屏幕宽度自动调整 */
+@media screen and (max-width: 768px) {
+    body.single-column .panel-header,
+    body.single-column .right-panel-header {
+        padding: var(--spacing-lg) var(--spacing-xl);
+    }
+    
+    body.single-column .chat-history,
+    body.single-column #documentContainer {
+        padding: var(--spacing-lg) var(--spacing-xl);
+    }
+    
+    body.single-column .chat-input-container {
+        padding: var(--spacing-xl) var(--spacing-xl) var(--spacing-lg);
+    }
+    
+    body.single-column .toolbar {
+        padding: 0 var(--spacing-xl) var(--spacing-md) !important;
+    }
+    
+    body.single-column .batch-actions-container {
+        padding: var(--spacing-xl) !important;
+    }
+}
+
+@media screen and (max-width: 480px) {
+    body.single-column .panel-header,
+    body.single-column .right-panel-header {
+        padding: var(--spacing-md) var(--spacing-lg);
+    }
+    
+    body.single-column .chat-history,
+    body.single-column #documentContainer {
+        padding: var(--spacing-md) var(--spacing-lg);
+    }
+    
+    body.single-column .chat-input-container {
+        padding: var(--spacing-lg) var(--spacing-lg) var(--spacing-md);
+    }
+    
+    body.single-column .toolbar {
+        padding: 0 var(--spacing-lg) var(--spacing-sm) !important;
+    }
+    
+    body.single-column .batch-actions-container {
+        padding: var(--spacing-lg) !important;
+    }
+}
+
+/* 单栏模式统一内容宽度 */
+body.single-column .panel-header,
+body.single-column .right-panel-header,
+body.single-column .chat-input-container,
+body.single-column .batch-actions-container,
+body.single-column #documentContainer,
+body.single-column .chat-history,
+body.single-column .left-panel-content {
+    max-width: 100%;
+    width: 100%;
+}
+
+/* 单栏模式移除所有内边距，实现真正完全满屏 */
+body.single-column .panel-header,
+body.single-column .right-panel-header {
+    padding-left: 0;
+    padding-right: 0;
+}
+
+body.single-column .chat-history,
+body.single-column .chat-input-container,
+body.single-column #documentContainer {
+    padding-left: 0;
+    padding-right: 0;
+    width: 100%;
+}
+
+body.single-column .batch-actions-container {
+    padding-left: 0;
+    padding-right: 0;
+    width: 100%;
+}
+
+/* 确保单栏模式下左右面板宽度一致 */
+body.single-column .left-panel,
+body.single-column .right-panel {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 100% !important;
+}
+
+/* 左侧面板内容区（聊天和参考资料） */
+.left-panel-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    min-height: 0;
+    height: 100%; /* 确保占满高度 */
+}
+
+/* 聊天历史区域 - 双栏模式扩大显示 */
+.chat-history {
+    flex: 3; /* 占据更多空间 (3 倍于输入区域) */
+    overflow-y: auto;
+    min-height: 500px; /* 提高最小高度到 500px */
+    width: 100%;
+    max-height: none; /* 移除最大高度限制 */
+}
+
+/* 面板基础样式 */
+.panel {
+    display: flex;
+    flex-direction: column;
+    background: var(--panel-bg);
+    position: relative;
+    overflow: hidden;
+}
+
+/* 左侧面板 */
+.left-panel {
+    width: 42%;
+    min-width: 320px;
+    max-width: 60%;
+    border-right: 1px solid var(--border-color);
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+}
+
+/* 右侧面板 */
+.right-panel {
+    flex: 1;
+    overflow: hidden;
+    background: linear-gradient(180deg, var(--right-panel-bg-top), var(--right-panel-bg-bottom));
+    min-width: 300px;
+    display: flex;
+    flex-direction: column;
+}
+
+/* 右侧面板头部 */
+.right-panel-header {
+    padding: var(--spacing-2xl) var(--spacing-2xl);
+    border-bottom: 1px solid var(--border-color);
+    background: var(--panel-bg);
+    backdrop-filter: var(--backdrop-blur);
+    box-shadow: var(--shadow-sm);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-shrink: 0;
+    width: 100%;
+}
+
+/* 响应式优化 - 小屏幕调整右侧面板头部 */
+@media screen and (max-width: 768px) {
+    .right-panel-header {
+        padding: var(--spacing-xl) var(--spacing-2xl);
+    }
+    
+    .right-panel-title {
+        font-size: 14px;
+        gap: var(--spacing-sm);
+    }
+    
+    .doc-stats {
+        gap: var(--spacing-md);
+    }
+    
+    .doc-stat {
+        font-size: 12px;
+    }
+    
+    .status-indicator {
+        padding: 4px 10px;
+        font-size: 11px;
+    }
+}
+
+@media screen and (max-width: 480px) {
+    .right-panel-header {
+        padding: var(--spacing-lg) var(--spacing-xl);
+        flex-direction: column;
+        gap: var(--spacing-md);
+        align-items: flex-start;
+    }
+    
+    .right-panel-title {
+        font-size: 13px;
+    }
+    
+    .doc-stats {
+        width: 100%;
+        justify-content: flex-start;
+    }
+    
+    .doc-stat {
+        font-size: 11px;
+    }
+    
+    .status-indicator {
+        padding: 3px 8px;
+        font-size: 10px;
+    }
+}
+
+.right-panel-title {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text-color);
+    letter-spacing: 0.3px;
+}
+
+/* 可调节分隔条 */
+.resizer {
+    width: 8px;
+    background: var(--border-color);
+    cursor: col-resize;
+    position: relative;
+    z-index: 100;
+    flex-shrink: 0;
+    transition: background 0.2s, width 0.2s;
+}
+
+.resizer:hover,
+.resizer.resizing {
+    background: var(--accent-color);
+    width: 12px;
+}
+
+.resizer::before {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: 2px;
+    height: 60px;
+    background: var(--text-secondary);
+    border-radius: 1px;
+    transition: background 0.2s;
+    opacity: 0.4;
+}
+
+.resizer:hover::before,
+.resizer.resizing::before {
+    background: white;
+    opacity: 1;
+}
+
+.resize-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 9999;
+    cursor: col-resize;
+}
+
+/* 头部区域 */
+.panel-header {
+    padding: var(--spacing-lg) var(--spacing-2xl); /* 从 16px 降到 12px */
+    border-bottom: 1px solid var(--border-color);
+    background: var(--glass-bg);
+    backdrop-filter: var(--backdrop-blur);
+    box-shadow: var(--shadow-sm);
+    width: 100%;
+}
+
+/* 响应式优化 - 小屏幕调整面板头部 */
+@media screen and (max-width: 768px) {
+    .panel-header {
+        padding: var(--spacing-xl) var(--spacing-2xl);
+    }
+    
+    .panel-title-text {
+        font-size: 28px;
+    }
+    
+    .panel-title-icon {
+        width: 40px;
+        height: 40px;
+        font-size: 20px;
+    }
+    
+    .panel-subtitle {
+        font-size: 11px;
+    }
+}
+
+@media screen and (max-width: 480px) {
+    .panel-header {
+        padding: var(--spacing-lg) var(--spacing-xl);
+    }
+    
+    .panel-title {
+        margin-bottom: var(--spacing-md);
+    }
+    
+    .panel-title-main {
+        gap: var(--spacing-md);
+        margin-bottom: var(--spacing-xs);
+    }
+    
+    .panel-title-text {
+        font-size: 24px;
+    }
+    
+    .panel-title-icon {
+        width: 36px;
+        height: 36px;
+        font-size: 18px;
+    }
+    
+    .panel-subtitle {
+        font-size: 10px;
+        letter-spacing: 2px;
+    }
+    
+    .toolbar {
+        gap: 6px;
+    }
+    
+    .toolbar-btn {
+        padding: 8px 12px !important;
+        font-size: 11px !important;
+    }
+}
+
+.panel-title {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    width: 100%;
+    margin-bottom: var(--spacing-lg);
+}
+
+.panel-title-main {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--spacing-lg);
+    margin-bottom: var(--spacing-sm);
+}
+
+.panel-title-icon {
+    width: 48px;
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--gradient-primary);
+    border-radius: var(--border-radius-lg);
+    font-size: 18px;
+    font-weight: 800;
+    letter-spacing: 0.8px;
+    color: #f8fafc;
+    text-transform: uppercase;
+    box-shadow: 0 6px 20px rgba(99, 102, 241, 0.35);
+    transition: var(--transition-fast);
+}
+
+.panel-title-icon:hover {
+    transform: scale(1.05) rotate(5deg);
+    box-shadow: var(--shadow-glow-hover);
+}
+
+.panel-title-text {
+    font-family: 'ZCOOL XiaoWei', 'Noto Sans SC', serif;
+    font-size: 36px;
+    font-weight: 700;
+    background: var(--gradient-primary);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    letter-spacing: 3px;
+    text-shadow: 0 2px 10px rgba(99, 102, 241, 0.2);
+}
+
+.panel-subtitle {
+    font-size: 13px;
+    color: var(--text-muted);
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    font-weight: 500;
+}
+
+/* 工具栏 */
+.toolbar {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.main-toolbar {
+    padding: 0 var(--spacing-2xl) 6px;
+    align-items: stretch;
+    justify-content: space-between;
+    gap: 6px;
+}
+
+.toolbar-group {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    min-width: 0;
+}
+
+.toolbar-group.main-actions {
+    flex: 1;
+    min-width: 220px;
+}
+
+.toolbar-group.utility-actions {
+    flex-shrink: 0;
+}
+
+@media screen and (max-width: 900px) {
+    .main-toolbar {
+        padding: 0 var(--spacing-xl) var(--spacing-sm);
+    }
+
+    .toolbar-group.main-actions {
+        width: 100%;
+        flex-wrap: wrap;
+    }
+}
+
+@media screen and (max-width: 640px) {
+    .main-toolbar {
+        padding: 0 var(--spacing-lg) var(--spacing-sm);
+    }
+
+    .toolbar-group {
+        width: 100%;
+        flex-wrap: wrap;
+    }
+
+    .toolbar-group .toolbar-btn {
+        flex: 1 1 auto;
+        justify-content: center;
+        min-width: 0;
+    }
+}
+
+/* 聊天历史区域 */
+.chat-history {
+    flex: 3; /* 占据更多空间 (3 倍于输入区域) */
+    overflow-y: auto;
+    padding: var(--spacing-md) var(--spacing-2xl); /* 从 16px 降到 12px，进一步减少垂直占用 */
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-light) transparent;
+    min-height: 0;
+    width: 100%;
+}
+
+/* 响应式优化 - 小屏幕调整聊天历史 */
+@media screen and (max-width: 768px) {
+    .chat-history {
+        padding: var(--spacing-lg) var(--spacing-xl);
+    }
+    
+    .message {
+        max-width: 95%;
+        font-size: 13px;
+        padding: 14px 16px;
+    }
+}
+
+@media screen and (max-width: 480px) {
+    .chat-history {
+        padding: var(--spacing-md) var(--spacing-lg);
+    }
+    
+    .message {
+        max-width: 98%;
+        font-size: 12px;
+        padding: 12px 14px;
+        margin-bottom: 14px;
+    }
+}
+
+.chat-history::-webkit-scrollbar {
+    width: 8px;
+}
+
+.chat-history::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.chat-history::-webkit-scrollbar-thumb {
+    background: var(--border-light);
+    border-radius: 4px;
+}
+
+.chat-history::-webkit-scrollbar-thumb:hover {
+    background: var(--accent-color);
+}

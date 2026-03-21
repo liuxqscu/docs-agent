@@ -1,0 +1,79 @@
+/* ========== CSS 变量定义 ========== */
+:root {
+    /* 主色调 - 优化的深色主题（更柔和舒适） */
+    --bg-color: #1a1a1f;
+    --text-color: #e8e8e8;
+    --text-secondary: #9ca3af;
+    --text-muted: #6b7280;
+    --panel-bg: #242429;
+    --panel-bg-elevated: #2a2a30;
+    --border-color: #36363d;
+    --border-light: #4a4a55;
+    --input-bg: #2d2d35;
+    --input-border: #45454f;
+    --button-bg: #6366f1;
+    --block-bg: #26262d;
+    --msg-user-bg: linear-gradient(135deg, rgba(99, 102, 241, 0.2) 0%, rgba(139, 92, 246, 0.15) 100%);
+    --msg-user-text: #e8e8e8;
+    --msg-agent-bg: #2a2a30;
+    --accent-color: #818cf8;
+    --purple-color: #a78bfa;
+    --success-color: #34d399;
+    --error-color: #f87171;
+    --warning-color: #fbbf24;
+    --info-color: #60a5fa;
+    
+    /* 阴影和效果 - 更细腻的层次 */
+    --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.25);
+    --shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+    --shadow-lg: 0 10px 32px rgba(0, 0, 0, 0.35);
+    --shadow-hover: 0 8px 24px rgba(0, 0, 0, 0.3);
+    --shadow-glow: 0 0 20px rgba(99, 102, 241, 0.25);
+    --shadow-glow-hover: 0 0 30px rgba(99, 102, 241, 0.35);
+    
+    /* 圆角 */
+    --border-radius-sm: 6px;
+    --border-radius: 10px;
+    --border-radius-lg: 14px;
+    --border-radius-xl: 18px;
+    
+    /* 过渡动画 */
+    --transition-fast: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+    --transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-slow: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+    
+    /* 玻璃态效果 */
+    --glass-bg: rgba(36, 36, 41, 0.85);
+    --glass-bg-light: rgba(36, 36, 41, 0.6);
+    --glass-border: rgba(74, 74, 85, 0.5);
+    --backdrop-blur: blur(12px);
+    
+    /* 渐变 - 更柔和的配色 */
+    --gradient-primary: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+    --gradient-primary-hover: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+    --gradient-secondary: linear-gradient(135deg, #ec4899 0%, #f43f5e 100%);
+    --gradient-accent: linear-gradient(135deg, #3b82f6 0%, #06b6d4 100%);
+    --gradient-success: linear-gradient(135deg, #34d399 0%, #10b981 100%);
+
+    /* 右侧预览面板背景（主题可覆盖） */
+    --right-panel-bg-top: #1a1a1f;
+    --right-panel-bg-bottom: #20232b;
+
+    /* 批量操作区（主题可覆盖） */
+    --batch-surface-bg: linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(15, 23, 42, 0.04));
+    --batch-surface-hover-bg: linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(15, 23, 42, 0.08));
+    --batch-accept-bg: linear-gradient(135deg, #208066 0%, #1a6b56 100%);
+    --batch-accept-bg-hover: linear-gradient(135deg, #1d735c 0%, #165947 100%);
+    --batch-accept-border: rgba(45, 212, 191, 0.28);
+    --batch-accept-text: #eefcf8;
+    --batch-accept-shadow: 0 4px 12px rgba(32, 128, 102, 0.2);
+    --batch-accept-shadow-hover: 0 7px 16px rgba(32, 128, 102, 0.26);
+    
+    /* 间距 */
+    --spacing-xs: 4px;
+    --spacing-sm: 8px;
+    --spacing-md: 12px;
+    --spacing-lg: 16px;
+    --spacing-xl: 20px;
+    --spacing-2xl: 24px;
+}

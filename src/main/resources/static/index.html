@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>DocPulse 文脉引擎</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%231f2937'/%3E%3Cpath d='M10 34h12l6-12 8 24 6-14h12' stroke='%2334d399' stroke-width='4' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+    <!-- 使用本地库文件，避免被浏览器追踪防护阻止 -->
+    <script src="libs/diff_match_patch.js"></script>
+    <script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
+    <script src="libs/marked.min.js"></script>
+    
+    <!-- CSS 文件 -->
+    <link rel="stylesheet" href="css/variables.css">
+    <link rel="stylesheet" href="css/themes.css">
+    <link rel="stylesheet" href="css/animations.css">
+    <link rel="stylesheet" href="css/layout.css">
+    <link rel="stylesheet" href="css/components.css">
+    <link rel="stylesheet" href="css/reference.css">
+</head>
+<body>
+    <!-- 加载动画 -->
+    <div id="loading" class="loading-screen">
+        <div class="loading-content">
+            <div class="loading-icon">DP</div>
+            <div class="loading-title">DocPulse 正在启动...</div>
+            <div class="loading-progress">
+                <div class="loading-progress-bar"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 左侧面板 -->
+    <div class="panel left-panel">
+        <div class="panel-header">
+            <div class="panel-title">
+                <div class="panel-title-main">
+                    <div class="panel-title-icon">DP</div>
+                    <div class="panel-title-text">DocPulse</div>
+                </div>
+                <div class="panel-subtitle">让每一次改动，都有据可审</div>
+            </div>
+        </div>
+        
+        <!-- 工具栏 -->
+        <div class="toolbar main-toolbar">
+            <div class="toolbar-group main-actions">
+                <button class="toolbar-btn primary" onclick="lockSelection()">
+                    <span class="ui-icon">◎</span> 锁定选区
+                </button>
+                <button class="toolbar-btn" onclick="syncDocumentFromWordToBackend()">
+                    <span class="ui-icon">↻</span> 同步
+                </button>
+                <button class="toolbar-btn" onclick="openSummarizeModal()" title="生成文档摘要">
+                    <span class="ui-icon">≡</span> 摘要
+                </button>
+            </div>
+            <div class="toolbar-group utility-actions">
+                <button class="toolbar-btn" onclick="toggleLayout()" title="切换单栏/双栏">
+                    <span id="layoutIcon" class="ui-icon">▥</span>
+                </button>
+                <button class="toolbar-btn" onclick="toggleTheme()" title="切换主题">
+                    <span id="themeIcon" class="ui-icon">◐</span>
+                    <span id="themeText" class="sr-only">深色</span>
+                </button>
+                <button class="toolbar-btn" onclick="openSettings()" title="设置">
+                    <span class="ui-icon">⚙</span>
+                </button>
+                <button class="toolbar-btn" onclick="clearChatHistory()" title="清空会话历史">
+                    <span class="ui-icon">⌦</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- 左侧内容区：聊天和参考资料 -->
+        <div class="left-panel-content">
+            <!-- 聊天历史 -->
+            <div class="chat-history" id="chatHistory">
+                <div class="message msg-system">[·] 欢迎使用 DocPulse 文脉引擎！<br><br>
+                <strong>快速上手：</strong><br>
+                1. 锁定 Word 中的文本选区<br>
+                2. 点击「管理资料」选择参考文件<br>
+                3. 勾选需要的文件，然后返回主界面<br>
+                4. 在下方输入分析指令（如"分析参考资料"）即可
+                </div>
+            </div>
+
+            <!-- 输入区域 -->
+            <div class="chat-input-container">
+                <div class="chat-input-area">
+                    <div class="chat-input-wrapper">
+                        <!-- Agent选择器和快捷指令单行紧凑布局 -->
+                        <div class="selector-row">
+                            <!-- Agent选择器 (与快捷指令同样框架) -->
+                            <div class="agent-selector-container">
+                                <select id="agentTypeSelect" title="选择Agent类型">
+                                    <option value="general">通用文档助手</option>
+                                    <option value="academic">学术论文助手</option>
+                                    <option value="business">商业文案助手</option>
+                                    <option value="technical">技术文档助手</option>
+                                    <option value="legal">法律合同助手</option>
+                                    <option value="creative">创意写作助手</option>
+                                    <option value="custom">自定义助手</option>
+                                </select>
+                                <button onclick="openCustomPromptModal()" id="customPromptBtn" class="selector-inline-btn is-hidden">设置</button>
+                            </div>
+                            
+                            <!-- 快捷指令下拉选择 -->
+                            <div class="command-templates-selector">
+                                <select id="commandTemplateSelect" title="选择快捷指令">
+                                    <option value="">快捷指令</option>
+                                </select>
+                                <div class="selector-divider"></div>
+                                <button onclick="openTemplateSettings()" class="selector-inline-btn" title="编辑快捷指令">编辑</button>
+                            </div>
+                        </div>
+                        <input type="text" id="userInput" placeholder="输入指令或点击快捷指令..." onkeypress="if(event.key==='Enter' && !event.shiftKey) { event.preventDefault(); sendMessage(); }">
+                    </div>
+                    <button class="send-btn" id="sendBtn" onclick="sendMessage()" title="发送">
+                        <span class="send-icon">➤</span>
+                    </button>
+                </div>
+        
+                <!-- 参考资料附件按钮 -->
+                <div class="reference-attachment-bar">
+                    <div class="reference-attachment-header">
+                        <span class="reference-attachment-icon ui-icon">⧉</span>
+                        <span class="reference-attachment-title">参考资料</span>
+                        <span id="referenceFileCount" class="reference-count">0 个文件</span>
+                    </div>
+                    <!-- 已选中文件显示 -->
+                    <div id="selectedReferencesDisplay" class="selected-references-display">
+                    </div>
+                    <button class="btn btn-sm btn-primary reference-manage-btn" onclick="toggleReferencePanel()">
+                        <span class="ui-icon">⧉</span> 管理资料
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 参考资料库弹出窗口 -->
+    <div id="referencePanelModal" class="modal">
+        <div class="modal-content reference-modal-content">
+            <div class="modal-header">
+                <span class="ui-icon">⧉</span>
+                <h3>参考资料库</h3>
+                <button class="modal-close" onclick="toggleReferencePanel()" title="关闭">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="reference-panel-info">
+                    <div class="reference-info-item">
+                        <span class="info-label">当前文档：</span>
+                        <span class="info-value" id="refDocId">未选择</span>
+                    </div>
+                    <div class="reference-info-item">
+                        <span class="info-label">存储位置：</span>
+                        <span class="info-value" id="refFolderPath">-</span>
+                    </div>
+                </div>
+                
+                <div class="reference-modal-actions">
+                    <button class="btn btn-primary btn-sm" onclick="uploadReferences()">
+                        <span class="ui-icon">↑</span> 上传文件
+                    </button>
+                    <button class="btn btn-secondary btn-sm" onclick="refreshReferences()">
+                        <span class="ui-icon">↻</span> 刷新列表
+                    </button>
+                </div>
+                
+                <div class="reference-file-list" id="referenceFileList">
+                    <div class="empty-state">
+                        <div class="empty-state-icon">◫</div>
+                        <div class="empty-state-text">暂无参考文件</div>
+                        <div class="empty-state-hint">
+                            你可以：<br>
+                            1. 点击 [上传文件] 添加本地文件<br>
+                            2. 直接拖拽文件到文件夹
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- 分隔条 -->
+    <div class="resizer" id="resizer"></div>
+
+    <!-- 右侧面板 -->
+    <div class="panel right-panel">
+        <div class="right-panel-header">
+            <div class="right-panel-title">
+                <span class="ui-icon">▤</span>
+                <span>文档预览</span>
+            </div>
+            <div class="doc-stats">
+                <div class="doc-stat">
+                    <span class="ui-icon">¶</span>
+                    <span id="blockCount">0 段落</span>
+                </div>
+                <div class="doc-stat">
+                    <span class="ui-icon">◌</span>
+                    <span id="pendingCount">待处理 0</span>
+                </div>
+                <div class="status-indicator" id="syncStatus">已同步</div>
+            </div>
+        </div>
+        <div id="documentContainer">
+            <div class="empty-state">
+                <div class="empty-state-icon">▤</div>
+                <div class="empty-state-text">暂无文档内容</div>
+                <div class="empty-state-hint">点击「同步文档」或「锁定选区」开始编辑</div>
+            </div>
+        </div>
+        
+        <!-- 批量操作按钮 -->
+        <div class="batch-actions-container">
+            <div class="batch-actions-row">
+                <button class="toolbar-btn primary batch-btn" onclick="batchAcceptAll()" id="batchAcceptBtn">
+                    <span class="batch-btn-icon">✓</span> 接受所有
+                </button>
+                <button class="toolbar-btn batch-btn batch-btn-danger" onclick="batchRejectAll()" id="batchRejectBtn">
+                    <span class="batch-btn-icon">✗</span> 拒绝所有
+                </button>
+            </div>
+            <div class="batch-actions-hint">
+                ⓘ 提示：也可以逐个接受或拒绝每个修改建议
+            </div>
+        </div>
+    </div>
+
+    <!-- 设置模态框 -->
+    <div id="settingsModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <span class="ui-icon">⚙</span>
+                <h3>大模型配置</h3>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>API Key</label>
+                    <input type="text" id="cfgApiKey" placeholder="输入 sk-...">
+                    <div class="form-hint">您的 API 密钥将安全地存储在本地</div>
+                </div>
+                <div class="form-group">
+                    <label>Base URL</label>
+                    <input type="text" id="cfgBaseUrl" placeholder="如 https://api.deepseek.com/v1">
+                    <div class="form-hint">兼容 OpenAI 格式的 API 地址</div>
+                </div>
+                <div class="form-group">
+                    <label>模型名称</label>
+                    <input type="text" id="cfgModelName" placeholder="如 deepseek-chat">
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" onclick="closeSettings()">取消</button>
+                <button class="btn btn-primary" onclick="saveSettings()">保存配置</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 自定义提示词模态框 -->
+    <div id="customPromptModal" class="modal">
+        <div class="modal-content custom-prompt-modal-content">
+            <div class="modal-header">
+                <span class="ui-icon">¶</span>
+                <h3>自定义 Agent 提示词</h3>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>系统提示词</label>
+                    <textarea id="customSystemPrompt" rows="12" class="custom-prompt-textarea" placeholder="输入自定义的系统提示词..."></textarea>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" onclick="closeCustomPromptModal()">取消</button>
+                <button class="btn btn-danger" onclick="clearCustomPrompt()">清除</button>
+                <button class="btn btn-primary" onclick="saveCustomPrompt()">保存提示词</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript 文件 -->
+    <script src="js/utils.js"></script>
+    <script src="js/config.js"></script>
+    <script src="js/chat.js"></script>
+    <script src="js/paragraph/id-parser.js"></script>
+    <script src="js/paragraph/paragraph-store.js"></script>
+    <script src="js/paragraph/paragraph-orchestrator.js"></script>
+    <script src="js/word/word-adapter.js"></script>
+    <script src="js/document.js"></script>
+    <script src="js/inline-diff.js"></script>
+    <script src="js/reference.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/features.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>

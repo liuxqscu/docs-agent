@@ -1,0 +1,101 @@
+/* ========== 主题样式 ========== */
+
+/* 浅色主题 - 温暖舒适 */
+body.light-theme {
+    --bg-color: #f9fafb;
+    --text-color: #1f2937;
+    --text-secondary: #6b7280;
+    --text-muted: #9ca3af;
+    --panel-bg: #ffffff;
+    --panel-bg-elevated: #f3f4f6;
+    --border-color: #e5e7eb;
+    --border-light: #d1d5db;
+    --input-bg: #f9fafb;
+    --input-border: #d1d5db;
+    --button-bg: #4f46e5;
+    --block-bg: #ffffff;
+    --msg-user-bg: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+    --msg-user-text: #1e40af;
+    --msg-agent-bg: #f3f4f6;
+    --accent-color: #4f46e5;
+    --purple-color: #7c3aed;
+    --success-color: #10b981;
+    --error-color: #ef4444;
+    --warning-color: #f59e0b;
+    --info-color: #3b82f6;
+    --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.06);
+    --shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+    --shadow-lg: 0 10px 32px rgba(0, 0, 0, 0.1);
+    --shadow-hover: 0 8px 24px rgba(0, 0, 0, 0.1);
+    --shadow-glow: 0 0 20px rgba(79, 70, 229, 0.15);
+    --shadow-glow-hover: 0 0 30px rgba(79, 70, 229, 0.25);
+    --glass-bg: rgba(255, 255, 255, 0.85);
+    --glass-border: rgba(229, 231, 235, 0.8);
+    --backdrop-blur: blur(12px);
+    --gradient-primary: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+    --gradient-primary-hover: linear-gradient(135deg, #4338ca 0%, #6d28d9 100%);
+    --gradient-secondary: linear-gradient(135deg, #ec4899 0%, #f43f5e 100%);
+    --gradient-accent: linear-gradient(135deg, #2563eb 0%, #0891b2 100%);
+    --gradient-success: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    --right-panel-bg-top: #f9fafb;
+    --right-panel-bg-bottom: #eef2f7;
+
+    --batch-surface-bg: linear-gradient(180deg, rgba(148, 163, 184, 0.08), rgba(148, 163, 184, 0.03));
+    --batch-surface-hover-bg: linear-gradient(180deg, rgba(148, 163, 184, 0.12), rgba(148, 163, 184, 0.05));
+    --batch-accept-bg: linear-gradient(135deg, #3b8b76 0%, #347b69 100%);
+    --batch-accept-bg-hover: linear-gradient(135deg, #357f6c 0%, #2f6e5f 100%);
+    --batch-accept-border: rgba(59, 139, 118, 0.32);
+    --batch-accept-text: #f5fffb;
+    --batch-accept-shadow: 0 3px 10px rgba(59, 139, 118, 0.15);
+    --batch-accept-shadow-hover: 0 6px 14px rgba(59, 139, 118, 0.2);
+}
+
+/* 灰色主题 - 莫兰迪色系 */
+body.gray-theme {
+    --bg-color: #f5f5f5;
+    --text-color: #262626;
+    --text-secondary: #737373;
+    --text-muted: #a3a3a3;
+    --panel-bg: #e5e5e5;
+    --panel-bg-elevated: #fafafa;
+    --border-color: #d4d4d4;
+    --border-light: #a3a3a3;
+    --input-bg: #ffffff;
+    --input-border: #a3a3a3;
+    --button-bg: #525252;
+    --block-bg: #fafafa;
+    --msg-user-bg: linear-gradient(135deg, #e5e5e5 0%, #d4d4d4 100%);
+    --msg-user-text: #404040;
+    --msg-agent-bg: #f5f5f5;
+    --accent-color: #525252;
+    --purple-color: #737373;
+    --success-color: #10b981;
+    --error-color: #ef4444;
+    --warning-color: #f59e0b;
+    --info-color: #3b82f6;
+    --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.08);
+    --shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+    --shadow-lg: 0 10px 32px rgba(0, 0, 0, 0.12);
+    --shadow-hover: 0 8px 24px rgba(0, 0, 0, 0.1);
+    --shadow-glow: 0 0 20px rgba(82, 82, 82, 0.15);
+    --shadow-glow-hover: 0 0 30px rgba(82, 82, 82, 0.25);
+    --glass-bg: rgba(255, 255, 255, 0.65);
+    --glass-border: rgba(212, 212, 212, 0.5);
+    --backdrop-blur: blur(12px);
+    --gradient-primary: linear-gradient(135deg, #737373 0%, #525252 100%);
+    --gradient-primary-hover: linear-gradient(135deg, #525252 0%, #404040 100%);
+    --gradient-secondary: linear-gradient(135deg, #a3a3a3 0%, #737373 100%);
+    --gradient-accent: linear-gradient(135deg, #737373 0%, #525252 100%);
+    --gradient-success: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    --right-panel-bg-top: #f5f5f5;
+    --right-panel-bg-bottom: #e5e7eb;
+
+    --batch-surface-bg: linear-gradient(180deg, rgba(163, 163, 163, 0.14), rgba(163, 163, 163, 0.06));
+    --batch-surface-hover-bg: linear-gradient(180deg, rgba(163, 163, 163, 0.2), rgba(163, 163, 163, 0.09));
+    --batch-accept-bg: linear-gradient(135deg, #5c7b73 0%, #516d66 100%);
+    --batch-accept-bg-hover: linear-gradient(135deg, #527069 0%, #475f5a 100%);
+    --batch-accept-border: rgba(92, 123, 115, 0.34);
+    --batch-accept-text: #f6faf9;
+    --batch-accept-shadow: 0 3px 10px rgba(92, 123, 115, 0.16);
+    --batch-accept-shadow-hover: 0 6px 14px rgba(92, 123, 115, 0.22);
+}
