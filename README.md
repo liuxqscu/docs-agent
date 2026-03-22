@@ -7,6 +7,15 @@ DocPulse 是一个本地优先的 Word AI 协作编辑工具：
 
 本项目目标是让开发者在本机快速复现：拉代码 -> 启动服务 -> 导入 Manifest -> 在 Word 里使用。
 
+## 下载入口（给使用者）
+
+- 最新版本下载页：https://github.com/liuxqscu/docs-agent/releases/latest
+- v1.0.0 发布页：https://github.com/liuxqscu/docs-agent/releases/tag/v1.0.0
+
+推荐下载顺序：
+1. 普通用户优先下载 `DocPulse-<version>.exe`
+2. 若某版本暂未提供 exe，则下载 `DocPulse-<version>-app-image.zip`，解压后运行 `DocPulse.exe`
+
 ## 版本与发布状态
 
 | 项目 | 当前值 |
