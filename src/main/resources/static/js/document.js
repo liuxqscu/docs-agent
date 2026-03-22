@@ -118,11 +118,11 @@ function stripDeleteChangePrefix(changeId) {
 }
 
 function resolveDeleteTargetId(change, fallbackChangeId) {
-    return change?.targetId || stripDeleteChangePrefix(fallbackChangeId);
+    return (change && change.targetId) || stripDeleteChangePrefix(fallbackChangeId);
 }
 
 function resolveInsertTargetId(change, fallbackChangeId) {
-    return change?.targetId || getInsertTargetBlockId(fallbackChangeId);
+    return (change && change.targetId) || getInsertTargetBlockId(fallbackChangeId);
 }
 
 function getLogicalBlockIds(state = localDocState) {
@@ -307,7 +307,7 @@ async function syncDocumentFromWordToBackend(options = {}) {
             let errorMsg = `状态码 ${initResponse.status}`;
             try {
                 const errJson = await initResponse.json();
-                errorMsg = errJson?.message || errJson?.error || errorMsg;
+                errorMsg = (errJson && errJson.message) || (errJson && errJson.error) || errorMsg;
             } catch (_) {
                 // ignore parse error and keep status text
             }
@@ -712,7 +712,7 @@ async function showAiSelectionMarkerInWord(context, change) {
     }
 
     for (const targetBlockId of targetBlockIds) {
-        await showUpdateDiffInWord(context, targetBlockId, '', change?.newContent || '');
+        await showUpdateDiffInWord(context, targetBlockId, '', (change && change.newContent) || '');
     }
 }
 
@@ -1228,7 +1228,7 @@ function splitSingleAiSelectionContentToTargets(content, targetBlockIds) {
     }
 
     const weights = targetBlockIds.map((targetId) => {
-        const ref = String(aiSelectionTargetBlocks?.[targetId] || '').trim();
+        const ref = String((aiSelectionTargetBlocks && aiSelectionTargetBlocks[targetId]) || '').trim();
         return Math.max(1, ref.length);
     });
 
@@ -1477,7 +1477,7 @@ function buildRejectReviewActionOptions(changeId, change) {
 
 async function applyRejectChangeToWord(change) {
     // 拒绝插入时不应改写 Word；只需丢弃草稿。
-    if (change?.type === 'insert') {
+    if (change && change.type === 'insert') {
         console.log('ℹ️ 拒绝插入变更：跳过 Word 写入，保持正文结构不变');
         return;
     }
@@ -1603,16 +1603,16 @@ function logReviewSemantics(stage, changeId, change, requestData) {
         return;
     }
 
-    if (change?.type === 'insert' || isInsertChangeId(safeChangeId)) {
-        const targetBlockId = requestData?.targetBlockId || change?.targetId || getInsertTargetBlockId(safeChangeId);
+    if ((change && change.type === 'insert') || isInsertChangeId(safeChangeId)) {
+        const targetBlockId = (requestData && requestData.targetBlockId) || (change && change.targetId) || getInsertTargetBlockId(safeChangeId);
         if (!targetBlockId) {
             console.warn(`[semantic:${stage}] insert_after 缺少 targetBlockId: ${safeChangeId}`);
         }
         return;
     }
 
-    if (change?.type === 'delete' || isDeleteChangeId(safeChangeId)) {
-        const targetBlockId = requestData?.targetBlockId || change?.targetId || getDeleteTargetBlockId(safeChangeId);
+    if ((change && change.type === 'delete') || isDeleteChangeId(safeChangeId)) {
+        const targetBlockId = (requestData && requestData.targetBlockId) || (change && change.targetId) || getDeleteTargetBlockId(safeChangeId);
         if (!targetBlockId) {
             console.warn(`[semantic:${stage}] delete_ 缺少 targetBlockId: ${safeChangeId}`);
         }

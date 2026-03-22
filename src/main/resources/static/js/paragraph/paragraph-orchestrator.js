@@ -18,7 +18,7 @@
             initialContent: aiSelectionInitialContent,
             oldContent: aiSelectionInitialContent || '',
             newContent: aiContent || '',
-            targetIds: selectionTargetMap?.ai_selection || [],
+            targetIds: (selectionTargetMap && selectionTargetMap.ai_selection) || [],
             status: 'pending',
             isVirtualChange: true
         };
@@ -75,7 +75,7 @@
         }
 
         const weights = targetBlockIds.map((targetId) => {
-            const ref = String(aiSelectionTargetBlocks?.[targetId] || '').trim();
+            const ref = String((aiSelectionTargetBlocks && aiSelectionTargetBlocks[targetId]) || '').trim();
             return Math.max(1, ref.length);
         });
 
@@ -150,9 +150,9 @@
         let nextAiSelectionTargetBlocks = { ...(aiSelectionTargetBlocks || {}) };
 
         if (changeId === 'ai_selection') {
-            const targetBlockIds = selectionTargetMap?.ai_selection || [];
+            const targetBlockIds = (selectionTargetMap && selectionTargetMap.ai_selection) || [];
             if (targetBlockIds.length > 0) {
-                const contentParagraphs = String(change?.newContent || '')
+                const contentParagraphs = String((change && change.newContent) || '')
                     .split('\n')
                     .map((p) => p.trim())
                     .filter((p) => p.length > 0);
@@ -169,7 +169,7 @@
                         delete nextChangePool[targetId];
                     });
                 } else {
-                    nextLocalDocState[targetBlockIds[0]] = { content: change?.newContent };
+                    nextLocalDocState[targetBlockIds[0]] = { content: (change && change.newContent) };
                 }
 
                 delete nextLocalDocState.ai_selection;
@@ -177,7 +177,7 @@
 
             nextAiSelectionInitialContent = null;
             nextAiSelectionTargetBlocks = {};
-        } else if (change?.type === 'insert') {
+        } else if (change && change.type === 'insert') {
             let maxIndex = -1;
             for (const blockId of Object.keys(nextLocalDocState)) {
                 if (!blockId.startsWith('p_')) {
@@ -189,7 +189,7 @@
                 }
             }
             const newBlockId = `p_${maxIndex + 1}`;
-            const targetBlockId = change?.targetId;
+            const targetBlockId = change && change.targetId;
 
             const rebuilt = {};
             let inserted = false;
@@ -200,24 +200,24 @@
 
                 rebuilt[blockId] = block;
                 if (!inserted && blockId === targetBlockId) {
-                    rebuilt[newBlockId] = { content: change?.newContent };
+                    rebuilt[newBlockId] = { content: (change && change.newContent) };
                     inserted = true;
                 }
             }
 
             if (!inserted) {
-                rebuilt[newBlockId] = { content: change?.newContent };
+                rebuilt[newBlockId] = { content: (change && change.newContent) };
             }
 
             for (const key of Object.keys(nextLocalDocState)) {
                 delete nextLocalDocState[key];
             }
             Object.assign(nextLocalDocState, rebuilt);
-        } else if (change?.type === 'update') {
-            const targetId = change?.targetId || changeId;
-            nextLocalDocState[targetId] = { content: change?.newContent };
-        } else if (change?.type === 'delete') {
-            const targetId = change?.targetId || String(changeId).replace('delete_', '');
+        } else if (change && change.type === 'update') {
+            const targetId = (change && change.targetId) || changeId;
+            nextLocalDocState[targetId] = { content: (change && change.newContent) };
+        } else if (change && change.type === 'delete') {
+            const targetId = (change && change.targetId) || String(changeId).replace('delete_', '');
             delete nextLocalDocState[targetId];
 
             for (const key of Object.keys(nextLocalDocState)) {
@@ -253,7 +253,7 @@
         let nextAiSelectionTargetBlocks = { ...(aiSelectionTargetBlocks || {}) };
 
         if (changeId === 'ai_selection') {
-            const targetBlockIds = selectionTargetMap?.ai_selection || [];
+            const targetBlockIds = (selectionTargetMap && selectionTargetMap.ai_selection) || [];
             targetBlockIds.forEach((blockId) => {
                 if (nextAiSelectionTargetBlocks[blockId] !== undefined) {
                     nextLocalDocState[blockId] = { content: nextAiSelectionTargetBlocks[blockId] };
@@ -261,20 +261,20 @@
             });
             delete nextLocalDocState.ai_selection;
             nextAiSelectionTargetBlocks = {};
-        } else if (change?.type === 'insert') {
+        } else if (change && change.type === 'insert') {
             const virtualBlockIds = Object.keys(nextLocalDocState).filter((bid) =>
                 bid.startsWith('insert_after_') && bid.includes(String(changeId).replace('insert_after_', ''))
             );
             virtualBlockIds.forEach((bid) => delete nextLocalDocState[bid]);
             delete nextLocalDocState[changeId];
-        } else if (change?.type === 'update' || change?.type === 'delete') {
-            const targetId = change?.targetId || String(changeId).replace('delete_', '');
-            const initialContent = change?.initialContent ?? change?.oldContent;
+        } else if ((change && change.type === 'update') || (change && change.type === 'delete')) {
+            const targetId = (change && change.targetId) || String(changeId).replace('delete_', '');
+            const initialContent = (change && change.initialContent) != null ? (change && change.initialContent) : (change && change.oldContent);
             if (initialContent !== undefined) {
                 nextLocalDocState[targetId] = { content: initialContent };
             }
 
-            if (change?.type === 'delete') {
+            if (change && change.type === 'delete') {
                 const virtualBlockIds = Object.keys(nextLocalDocState).filter((bid) =>
                     bid.startsWith('delete_') && bid.includes(targetId)
                 );
@@ -315,13 +315,13 @@
                 continue;
             }
 
-            const oldContent = getBlockContent(localDocState?.[blockId]);
+            const oldContent = getBlockContent(localDocState && localDocState[blockId]);
 
             const serverBlock = safeServerState[blockId];
             const newContent = getBlockContent(serverBlock);
 
             if (newContent && newContent !== oldContent) {
-                const initialContent = initialDocState?.[blockId] || oldContent;
+                const initialContent = (initialDocState && initialDocState[blockId]) || oldContent;
                 nextChangePool[blockId] = buildUpdatePendingChange(
                     blockId,
                     initialContent,
@@ -345,7 +345,7 @@
                 continue;
             }
 
-            if (blockId.startsWith('insert_after_') && !localDocState?.[blockId]) {
+            if (blockId.startsWith('insert_after_') && !(localDocState && localDocState[blockId])) {
                 const newContent = getBlockContent(serverBlock);
                 const existingChange = nextChangePool[blockId];
                 if (isPendingChange(existingChange)) {
@@ -382,8 +382,8 @@
                         continue;
                     }
 
-                    const originalContent = getBlockContent(localDocState?.[targetDeleteBlockId]);
-                    const trueInitialContent = initialDocState?.[targetDeleteBlockId] || originalContent || '';
+                    const originalContent = getBlockContent(localDocState && localDocState[targetDeleteBlockId]);
+                    const trueInitialContent = (initialDocState && initialDocState[targetDeleteBlockId]) || originalContent || '';
                     nextChangePool[blockId] = buildDeletePendingChange(
                         blockId,
                         targetDeleteBlockId,
@@ -415,7 +415,7 @@
         for (const [blockId, serverBlock] of Object.entries(safeServerState)) {
             const serverContent = getBlockContent(serverBlock);
 
-            const localBlock = localDocState?.[blockId];
+            const localBlock = localDocState && localDocState[blockId];
             const localContent = getBlockContent(localBlock);
 
             if (blockId === 'ai_selection') {
@@ -431,9 +431,9 @@
                         continue;
                     }
 
-                    const originalContent = getBlockContent(localDocState?.[targetDeleteBlockId]);
+                    const originalContent = getBlockContent(localDocState && localDocState[targetDeleteBlockId]);
 
-                    const trueInitialContent = initialDocState?.[targetDeleteBlockId] || originalContent || '';
+                    const trueInitialContent = (initialDocState && initialDocState[targetDeleteBlockId]) || originalContent || '';
                     nextChangePool[deleteChangeId] = buildDeletePendingChange(
                         deleteChangeId,
                         targetDeleteBlockId,
@@ -468,7 +468,7 @@
             if (!localBlock) {
                 nextChangePool[blockId] = buildInsertPendingChange(blockId, blockId, serverContent);
             } else if (serverContent !== localContent) {
-                const trueInitialContent = initialDocState?.[blockId] || localContent;
+                const trueInitialContent = (initialDocState && initialDocState[blockId]) || localContent;
                 nextChangePool[blockId] = buildUpdatePendingChange(
                     blockId,
                     trueInitialContent,
@@ -489,7 +489,7 @@
                     continue;
                 }
 
-                const trueInitialContent = initialDocState?.[blockId] || localContent;
+                const trueInitialContent = (initialDocState && initialDocState[blockId]) || localContent;
                 nextChangePool[deleteChangeId] = buildDeletePendingChange(
                     deleteChangeId,
                     blockId,

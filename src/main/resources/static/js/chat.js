@@ -331,7 +331,7 @@ async function analyzeReferencesFromChat(instruction, selectedFiles) {
         const result = await response.json();
         
         if (result.status === 'success') {
-            const updatedCount = result.updatedBlocks?.length || 0;
+            const updatedCount = (result && result.updatedBlocks && result.updatedBlocks.length) || 0;
             const message = updatedCount > 0 
                 ? `[✓] 参考资料分析完成！已更新 ${updatedCount} 个段落`
                 : `[✓] 参考资料分析完成！（文档未发生变更，可能仅需总结）`;
