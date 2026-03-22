@@ -7,6 +7,17 @@ DocPulse 是一个本地优先的 Word AI 协作编辑工具：
 
 本项目目标是让开发者在本机快速复现：拉代码 -> 启动服务 -> 导入 Manifest -> 在 Word 里使用。
 
+## 版本与发布状态
+
+| 项目 | 当前值 |
+| --- | --- |
+| 当前发布标签 | v1.0.0 |
+| 当前稳定资产 | DocPulse-1.0.0-app-image.zip |
+| exe 安装包状态 | 需安装 WiX Toolset 后构建 |
+| 默认本地地址 | https://localhost:18080 |
+
+维护建议：每次发布后，只需更新本表中的版本号与资产文件名。
+
 ---
 
 ## 1. 当前状态（对开源使用者）
@@ -137,7 +148,7 @@ scripts\stop-docsagent.bat
 
 适用场景：你已经从发布页或他人处拿到 Windows 安装包（`DocPulse-*.exe`）。
 
-当前仓库若还没有 GitHub Releases，请先让维护者执行 `scripts\build-release.bat` 产出安装包，再通过网盘/IM/企业制品库分发给非开发者。
+当前发布基线为 `v1.0.0`。若发布页暂未提供 `exe` 安装包，可先使用 `DocPulse-1.0.0-app-image.zip`（解压后运行 `DocPulse.exe`）。
 
 1. 双击安装包完成安装。
 2. 从开始菜单或桌面快捷方式启动 DocPulse。
@@ -149,21 +160,27 @@ scripts\stop-docsagent.bat
 说明：
 - exe 运行模式不依赖你本机安装 Maven。
 - 若安装后无法启动，可先退出托盘中的 DocPulse，再重新启动一次。
+- 若仅拿到 `app-image.zip`，同样不依赖 Maven/JDK，解压后直接运行即可。
 
-### 4.6 GitHub Releases 下载说明（可选）
+### 4.6 GitHub Releases 下载说明（当前建议）
 
-当你创建首个 GitHub Release 后，可将下面内容放到 Release 描述中：
+当前建议在 Release 中至少提供：
+
+- `DocPulse-<version>-app-image.zip`（当前可稳定产出）
+- `DocPulse-<version>.exe`（安装 WiX Toolset 后产出）
+
+可将下面内容放到 Release 描述中：
 
 ```markdown
 ## DocPulse Windows 安装说明
 
 ### 下载哪个文件？
 
-- 普通用户（推荐）：下载 `DocPulse-<version>.exe`
+- 普通用户（推荐）：下载 `DocPulse-<version>.exe`（如果该版本已提供）
    - 双击安装即可使用
    - 适合不需要源码和构建环境的用户
 
-- 高级用户：下载并解压 `DocPulse-<version>-app-image.zip`（如果本次发布提供）
+- 通用兜底：下载并解压 `DocPulse-<version>-app-image.zip`
    - 解压后运行 `DocPulse.exe`
    - 适合便携运行或调试启动参数
 
