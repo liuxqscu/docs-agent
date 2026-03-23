@@ -1,6 +1,7 @@
 package com.example.docs_agent.controller;
 
 import com.example.docs_agent.config.AgentPromptConfig;
+import com.example.docs_agent.config.DocumentScopeFilter;
 import com.example.docs_agent.constant.AgentType;
 import com.example.docs_agent.constant.ApiConstants;
 import com.example.docs_agent.constant.SystemMessageConstants;
@@ -11,6 +12,8 @@ import com.example.docs_agent.dto.SummarizeResponse;
 import com.example.docs_agent.service.BatchChangeService;
 import com.example.docs_agent.service.DocumentAgentService;
 import com.example.docs_agent.service.DocumentContext;
+import com.example.docs_agent.service.DocumentScopeContext;
+import com.example.docs_agent.service.DocumentScopeRegistry;
 import com.example.docs_agent.service.GrammarCheckService;
 import com.example.docs_agent.service.ReferenceFileService;
 import com.example.docs_agent.service.WordDocumentService;
@@ -20,8 +23,12 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import jakarta.servlet.http.HttpServletRequest;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -46,6 +53,7 @@ public class DocAgentController {
     private final AgentPromptConfig agentPromptConfig;
     private final ReferenceFileService referenceFileService;
     private final AiSelectionSyncService aiSelectionSyncService;
+    private final DocumentScopeRegistry documentScopeRegistry;
 
     /**
      * 增量保存到 Word 文档（只修改有变更的段落）
@@ -77,9 +85,12 @@ public class DocAgentController {
      */
     @GetMapping("/document")
     public ResponseEntity<ApiResponse<Map<String, Block>>> getDocument() {
-        log.debug("获取当前文档状态，区块数: {}", documentContext.getBlockCount());
+        String scope = DocumentScopeContext.getCurrentDocId();
+        log.debug("获取当前文档状态，区块数: {}, scope={}", documentContext.getBlockCount(), scope);
         Map<String, Block> blocks = documentContext.getAllBlocksAsMap();
-        return ResponseEntity.ok(ApiResponse.success(blocks));
+        return ResponseEntity.ok()
+                .header(ApiConstants.HEADER_RESOLVED_SCOPE, scope)
+                .body(ApiResponse.success(blocks));
     }
 
     /**
@@ -89,14 +100,26 @@ public class DocAgentController {
      * @return 操作结果
      */
     @PostMapping("/init-document")
-    public ResponseEntity<ApiResponse<Void>> initDocument(@RequestBody Map<String, String> blocks) {
+    public ResponseEntity<ApiResponse<Void>> initDocument(@RequestBody Map<String, String> blocks,
+                                                          HttpServletRequest request) {
+        String sessionId = (String) request.getAttribute(DocumentScopeFilter.ATTR_SESSION_ID);
+        String routingKey = (String) request.getAttribute(DocumentScopeFilter.ATTR_SCOPE_ROUTING_KEY);
+        String rawClientDocId = (String) request.getAttribute(DocumentScopeFilter.ATTR_RAW_CLIENT_DOC_ID);
+
+        String contentScope = buildContentScope(routingKey, blocks);
+        DocumentScopeContext.setCurrentDocId(contentScope);
+        documentScopeRegistry.setLastScope(routingKey, contentScope);
+        if (rawClientDocId != null && !rawClientDocId.isBlank()) {
+            documentScopeRegistry.bindClientScope(routingKey, rawClientDocId, contentScope);
+        }
+
         documentContext.clearAll();
 
         for (Map.Entry<String, String> entry : blocks.entrySet()) {
             documentContext.updateBlock(entry.getKey(), entry.getValue());
         }
 
-        log.info("初始化文档状态，共 {} 个段落", blocks.size());
+        log.info("初始化文档状态，共 {} 个段落 [scope={}, rawClientDocId={}]", blocks.size(), contentScope, rawClientDocId);
         return ResponseEntity.ok(ApiResponse.success("文档初始化成功", null));
     }
 
@@ -437,6 +460,12 @@ public class DocAgentController {
         String userMessage = request.getMessage();
         String agentTypeCode = request.getAgentType();
         String customSystemPrompt = request.getCustomSystemPrompt();
+        String docScopeId = DocumentScopeContext.getCurrentDocId();
+
+        String bodyDocId = request.getDocId();
+        if (bodyDocId != null && !bodyDocId.isBlank() && !docScopeId.equals(bodyDocId.trim())) {
+            log.debug("检测到 docId 不一致：headerScope={}, bodyDocId={}，将以 headerScope 为准", docScopeId, bodyDocId);
+        }
 
         // 确定使用的 Agent 类型
         AgentType agentType = AgentType.GENERAL;
@@ -448,7 +477,8 @@ public class DocAgentController {
             }
         }
 
-        log.info("收到前端指令: {} [使用模型: {}, Agent类型: {}]", userMessage, modelName, agentType.getName());
+        log.info("收到前端指令: {} [使用模型: {}, Agent类型: {}, 文档会话: {}]",
+            userMessage, modelName, agentType.getName(), docScopeId);
 
         // 检查文档是否为空
         if (documentContext.getAllBlocksAsMap().isEmpty()) {
@@ -470,12 +500,13 @@ public class DocAgentController {
             // 如果有自定义提示词且允许使用，则使用自定义提示词
             if (AgentType.CUSTOM.equals(agentType) && customSystemPrompt != null && !customSystemPrompt.isEmpty()) {
                 if (agentPromptConfig.isAllowCustomPrompt()) {
-                    agentReply = documentAgentService.chatWithCustomPrompt(apiKey, baseUrl, modelName, userMessage, customSystemPrompt);
+                    agentReply = documentAgentService.chatWithCustomPrompt(
+                            apiKey, baseUrl, modelName, userMessage, customSystemPrompt, docScopeId);
                 } else {
                     agentReply = "当前配置不允许使用自定义提示词";
                 }
             } else {
-                agentReply = documentAgentService.chat(apiKey, baseUrl, modelName, userMessage, agentType);
+                agentReply = documentAgentService.chat(apiKey, baseUrl, modelName, userMessage, agentType, docScopeId);
             }
             log.info("Agent 执行完毕，返回结果长度: {}", agentReply != null ? agentReply.length() : 0);
         } catch (Exception e) {
@@ -502,6 +533,38 @@ public class DocAgentController {
 
         return ResponseEntity.ok(response);
     }
+
+    private String buildContentScope(String routingKey, Map<String, String> blocks) {
+        String safeRoutingKey = (routingKey == null || routingKey.isBlank()) ? "anonymous" : routingKey;
+        String routingHash = Integer.toHexString(safeRoutingKey.hashCode());
+        String contentHash = digestBlocks(blocks);
+        return "route_" + routingHash + "_doc_" + contentHash;
+    }
+
+    private String digestBlocks(Map<String, String> blocks) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            blocks.entrySet().stream()
+                    .sorted(Map.Entry.comparingByKey())
+                    .forEach(entry -> {
+                        digest.update(entry.getKey().getBytes(StandardCharsets.UTF_8));
+                        digest.update((byte) '=');
+                        String value = entry.getValue() == null ? "" : entry.getValue();
+                        digest.update(value.getBytes(StandardCharsets.UTF_8));
+                        digest.update((byte) '\n');
+                    });
+
+            byte[] hash = digest.digest();
+            StringBuilder sb = new StringBuilder();
+            for (int i = 0; i < 8 && i < hash.length; i++) {
+                sb.append(String.format("%02x", hash[i]));
+            }
+            return sb.toString();
+        } catch (NoSuchAlgorithmException e) {
+            return Integer.toHexString(blocks.hashCode());
+        }
+    }
+
 
     // ==================== Agent 类型管理 API ====================
 

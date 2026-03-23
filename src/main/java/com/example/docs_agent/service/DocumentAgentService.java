@@ -114,7 +114,14 @@ public class DocumentAgentService {
      * @return DocumentAgent 实例
      */
     public DocumentAgent getOrCreateAgent(String apiKey, String baseUrl, String modelName) {
-        String cacheKey = apiKey + "|" + baseUrl + "|" + modelName + "|general";
+        return getOrCreateAgent(apiKey, baseUrl, modelName, "default");
+    }
+
+    /**
+     * 获取或创建 Agent 实例（按文档会话隔离）
+     */
+    public DocumentAgent getOrCreateAgent(String apiKey, String baseUrl, String modelName, String docScopeId) {
+        String cacheKey = buildCacheKey(apiKey, baseUrl, modelName, "general", docScopeId);
 
         return (DocumentAgent) agentCache.computeIfAbsent(cacheKey, k -> {
             log.info("正在初始化新模型实例: {}", modelName);
@@ -144,8 +151,13 @@ public class DocumentAgentService {
      */
     @SuppressWarnings("unchecked")
     public <T> T getOrCreateAgent(String apiKey, String baseUrl, String modelName, AgentType agentType) {
+        return getOrCreateAgent(apiKey, baseUrl, modelName, agentType, "default");
+    }
+
+    @SuppressWarnings("unchecked")
+    public <T> T getOrCreateAgent(String apiKey, String baseUrl, String modelName, AgentType agentType, String docScopeId) {
         // 使用配置组合 + Agent 类型作为缓存 Key
-        String cacheKey = apiKey + "|" + baseUrl + "|" + modelName + "|" + agentType.getCode();
+        String cacheKey = buildCacheKey(apiKey, baseUrl, modelName, agentType.getCode(), docScopeId);
 
         return (T) agentCache.computeIfAbsent(cacheKey, k -> {
             log.info("正在初始化新模型实例: {} [Agent类型: {}]", modelName, agentType.getName());
@@ -186,7 +198,11 @@ public class DocumentAgentService {
      * @return Agent 回复
      */
     public String chat(String apiKey, String baseUrl, String modelName, String userMessage) {
-        DocumentAgent agent = getOrCreateAgent(apiKey, baseUrl, modelName);
+        return chat(apiKey, baseUrl, modelName, userMessage, "default");
+    }
+
+    public String chat(String apiKey, String baseUrl, String modelName, String userMessage, String docScopeId) {
+        DocumentAgent agent = getOrCreateAgent(apiKey, baseUrl, modelName, docScopeId);
         try {
             return agent.chat(userMessage);
         } catch (Exception e) {
@@ -206,35 +222,39 @@ public class DocumentAgentService {
      * @return Agent 回复
      */
     public String chat(String apiKey, String baseUrl, String modelName, String userMessage, AgentType agentType) {
+        return chat(apiKey, baseUrl, modelName, userMessage, agentType, "default");
+    }
+
+    public String chat(String apiKey, String baseUrl, String modelName, String userMessage, AgentType agentType, String docScopeId) {
         try {
             return switch (agentType) {
                 case GENERAL -> {
-                    DocumentAgent agent = getOrCreateAgent(apiKey, baseUrl, modelName);
+                    DocumentAgent agent = getOrCreateAgent(apiKey, baseUrl, modelName, docScopeId);
                     yield agent.chat(userMessage);
                 }
                 case ACADEMIC -> {
-                    AcademicDocumentAgent agent = getOrCreateAgent(apiKey, baseUrl, modelName, AgentType.ACADEMIC);
+                    AcademicDocumentAgent agent = getOrCreateAgent(apiKey, baseUrl, modelName, AgentType.ACADEMIC, docScopeId);
                     yield agent.chat(userMessage);
                 }
                 case BUSINESS -> {
-                    BusinessDocumentAgent agent = getOrCreateAgent(apiKey, baseUrl, modelName, AgentType.BUSINESS);
+                    BusinessDocumentAgent agent = getOrCreateAgent(apiKey, baseUrl, modelName, AgentType.BUSINESS, docScopeId);
                     yield agent.chat(userMessage);
                 }
                 case TECHNICAL -> {
-                    TechnicalDocumentAgent agent = getOrCreateAgent(apiKey, baseUrl, modelName, AgentType.TECHNICAL);
+                    TechnicalDocumentAgent agent = getOrCreateAgent(apiKey, baseUrl, modelName, AgentType.TECHNICAL, docScopeId);
                     yield agent.chat(userMessage);
                 }
                 case LEGAL -> {
-                    LegalDocumentAgent agent = getOrCreateAgent(apiKey, baseUrl, modelName, AgentType.LEGAL);
+                    LegalDocumentAgent agent = getOrCreateAgent(apiKey, baseUrl, modelName, AgentType.LEGAL, docScopeId);
                     yield agent.chat(userMessage);
                 }
                 case CREATIVE -> {
-                    CreativeDocumentAgent agent = getOrCreateAgent(apiKey, baseUrl, modelName, AgentType.CREATIVE);
+                    CreativeDocumentAgent agent = getOrCreateAgent(apiKey, baseUrl, modelName, AgentType.CREATIVE, docScopeId);
                     yield agent.chat(userMessage);
                 }
                 case CUSTOM -> {
                     // 自定义类型使用通用 Agent，但可以通过其他方式（如配置）影响行为
-                    DocumentAgent agent = getOrCreateAgent(apiKey, baseUrl, modelName);
+                    DocumentAgent agent = getOrCreateAgent(apiKey, baseUrl, modelName, docScopeId);
                     yield agent.chat(userMessage);
                 }
             };
@@ -256,6 +276,10 @@ public class DocumentAgentService {
      * @return Agent 回复
      */
     public String chatWithCustomPrompt(String apiKey, String baseUrl, String modelName, String userMessage, String customPrompt) {
+        return chatWithCustomPrompt(apiKey, baseUrl, modelName, userMessage, customPrompt, "default");
+    }
+
+    public String chatWithCustomPrompt(String apiKey, String baseUrl, String modelName, String userMessage, String customPrompt, String docScopeId) {
         // 临时设置自定义提示词到常量类
         SystemMessageConstants.setCustomPrompt(customPrompt);
         try {
@@ -269,12 +293,14 @@ public class DocumentAgentService {
                     .build();
 
             // 使用接口实现自定义提示词
+            String customCacheKey = buildCacheKey(apiKey, baseUrl, modelName, "custom_prompt", docScopeId);
             CustomDocumentAgent agent = AiServices.builder(CustomDocumentAgent.class)
                     .chatLanguageModel(model)
                     .chatMemory(MessageWindowChatMemory.withMaxMessages(ApiConstants.DEFAULT_CHAT_MEMORY_SIZE))
                     .tools(documentEditorTools)
                     .build();
 
+            log.debug("自定义提示词会话键: {}", customCacheKey);
             return agent.chat(userMessage);
         } catch (Exception e) {
             log.error("Agent 对话失败 [自定义提示词]: {}", e.getMessage(), e);
@@ -298,12 +324,20 @@ public class DocumentAgentService {
      * @param modelName 模型名称
      */
     public void clearAgentCache(String apiKey, String baseUrl, String modelName) {
-        // 清除该配置下的所有 Agent 类型缓存
-        for (AgentType type : AgentType.values()) {
-            String cacheKey = apiKey + "|" + baseUrl + "|" + modelName + "|" + type.getCode();
-            agentCache.remove(cacheKey);
-        }
+        String prefix = apiKey + "|" + baseUrl + "|" + modelName + "|";
+        agentCache.keySet().removeIf(key -> key.startsWith(prefix));
         log.info("已清除 Agent 缓存: {}", modelName);
+    }
+
+    private String buildCacheKey(String apiKey, String baseUrl, String modelName, String agentCode, String docScopeId) {
+        return apiKey + "|" + baseUrl + "|" + modelName + "|" + agentCode + "|" + normalizeDocScope(docScopeId);
+    }
+
+    private String normalizeDocScope(String docScopeId) {
+        if (docScopeId == null || docScopeId.isBlank()) {
+            return "default";
+        }
+        return docScopeId.trim();
     }
 
     /**

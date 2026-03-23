@@ -23,4 +23,9 @@ public class ChatRequest {
      * 自定义系统提示词（当 agentType 为 custom 时使用）
      */
     private String customSystemPrompt;
+
+    /**
+     * 文档会话 ID（用于隔离不同文档的聊天上下文）
+     */
+    private String docId;
 }

@@ -1,13 +1,13 @@
 package com.example.docs_agent.service;
 
 import com.example.docs_agent.entity.Block;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * 文档上下文服务
@@ -15,23 +15,25 @@ import java.util.Map;
  */
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class DocumentContext {
+
+    private static final class DocumentState {
+        private final Map<String, Integer> blockToParaIndex = new LinkedHashMap<>();
+        private final Map<String, Block> blocks = new LinkedHashMap<>();
+        private final UndoRedoService undoRedoService = new UndoRedoService();
+    }
+
+    private final Map<String, DocumentState> documentStates = new ConcurrentHashMap<>();
+
+    private DocumentState getCurrentState() {
+        String docId = DocumentScopeContext.getCurrentDocId();
+        return documentStates.computeIfAbsent(docId, key -> new DocumentState());
+    }
 
     /**
      * 区块 ID 与 Word 段落索引的映射
      */
-    private final Map<String, Integer> blockToParaIndex = new LinkedHashMap<>();
-
-    /**
-     * 使用 LinkedHashMap 保持区块的插入顺序（即文档的阅读顺序）
-     */
-    private final Map<String, Block> blocks = new LinkedHashMap<>();
-
-    /**
-     * 撤销/重做服务
-     */
-    private final UndoRedoService undoRedoService;
+    // 说明：字段已迁移到 DocumentState，避免多文档共享同一内存态。
 
     /**
      * 设置区块 ID 与 Word 段落索引的映射（扫描 Word 时调用）
@@ -39,8 +41,9 @@ public class DocumentContext {
      * @param mapping 映射关系
      */
     public void setBlockToParaIndex(Map<String, Integer> mapping) {
-        blockToParaIndex.clear();
-        blockToParaIndex.putAll(mapping);
+        DocumentState state = getCurrentState();
+        state.blockToParaIndex.clear();
+        state.blockToParaIndex.putAll(mapping);
         log.debug("设置区块与段落索引映射，共 {} 个区块", mapping.size());
     }
 
@@ -50,7 +53,8 @@ public class DocumentContext {
      * @return 不可修改的映射副本
      */
     public Map<String, Integer> getBlockToParaIndex() {
-        return Collections.unmodifiableMap(blockToParaIndex);
+        DocumentState state = getCurrentState();
+        return Collections.unmodifiableMap(new LinkedHashMap<>(state.blockToParaIndex));
     }
 
     /**
@@ -60,7 +64,8 @@ public class DocumentContext {
      * @return 区块对象，不存在返回 null
      */
     public Block getBlock(String blockId) {
-        return blocks.get(blockId);
+        DocumentState state = getCurrentState();
+        return state.blocks.get(blockId);
     }
 
     /**
@@ -72,9 +77,10 @@ public class DocumentContext {
      * @return 新生成的 blockId
      */
     public String insertBlockAfter(String afterBlockId, String newText) {
+        DocumentState state = getCurrentState();
         // 生成新的 blockId：p_current_max_index + 1
         int maxIndex = 0;
-        for (String blockId : blocks.keySet()) {
+        for (String blockId : state.blocks.keySet()) {
             if (blockId.startsWith("p_")) {
                 try {
                     int index = Integer.parseInt(blockId.substring(2));
@@ -91,7 +97,7 @@ public class DocumentContext {
         Map<String, Block> newBlocks = new LinkedHashMap<>();
         boolean inserted = false;
         
-        for (Map.Entry<String, Block> entry : blocks.entrySet()) {
+        for (Map.Entry<String, Block> entry : state.blocks.entrySet()) {
             newBlocks.put(entry.getKey(), entry.getValue());
             if (!inserted && entry.getKey().equals(afterBlockId)) {
                 // 在找到目标段落后添加新段落
@@ -110,8 +116,8 @@ public class DocumentContext {
         }
         
         // 清空原blocks并重新加载
-        blocks.clear();
-        blocks.putAll(newBlocks);
+        state.blocks.clear();
+        state.blocks.putAll(newBlocks);
         
         return newBlockId;
     }
@@ -125,9 +131,10 @@ public class DocumentContext {
      * @return 新生成的 blockId
      */
     public String insertBlockBefore(String beforeBlockId, String newText) {
+        DocumentState state = getCurrentState();
         // 生成新的 blockId：p_current_max_index + 1
         int maxIndex = 0;
-        for (String blockId : blocks.keySet()) {
+        for (String blockId : state.blocks.keySet()) {
             if (blockId.startsWith("p_")) {
                 try {
                     int index = Integer.parseInt(blockId.substring(2));
@@ -144,7 +151,7 @@ public class DocumentContext {
         Map<String, Block> newBlocks = new LinkedHashMap<>();
         boolean inserted = false;
         
-        for (Map.Entry<String, Block> entry : blocks.entrySet()) {
+        for (Map.Entry<String, Block> entry : state.blocks.entrySet()) {
             if (!inserted && entry.getKey().equals(beforeBlockId)) {
                 // 在找到目标段落前添加新段落
                 newBlocks.put(newBlockId, new Block(newText));
@@ -163,8 +170,8 @@ public class DocumentContext {
         }
         
         // 清空原blocks并重新加载
-        blocks.clear();
-        blocks.putAll(newBlocks);
+        state.blocks.clear();
+        state.blocks.putAll(newBlocks);
         
         return newBlockId;
     }
@@ -176,8 +183,9 @@ public class DocumentContext {
      * @return 前一个逻辑段落 ID；如果不存在则返回 null
      */
     public String findPreviousLogicalBlockId(String blockId) {
+        DocumentState state = getCurrentState();
         String previousLogical = null;
-        for (String currentId : blocks.keySet()) {
+        for (String currentId : state.blocks.keySet()) {
             if (!currentId.startsWith("p_")) {
                 continue;
             }
@@ -198,12 +206,13 @@ public class DocumentContext {
      * @param newText 新文本内容
      */
     public void updateBlock(String blockId, String newText) {
-        Block block = blocks.get(blockId);
+        DocumentState state = getCurrentState();
+        Block block = state.blocks.get(blockId);
         if (block != null) {
             block.setContent(newText);
             log.debug("更新区块 [{}]，新内容长度: {}", blockId, newText != null ? newText.length() : 0);
         } else {
-            blocks.put(blockId, new Block(newText));
+            state.blocks.put(blockId, new Block(newText));
             log.debug("新增区块 [{}]，内容长度: {}", blockId, newText != null ? newText.length() : 0);
         }
     }
@@ -214,7 +223,8 @@ public class DocumentContext {
      * @param blockId 要删除的区块 ID
      */
     public void deleteBlock(String blockId) {
-        if (blocks.remove(blockId) != null) {
+        DocumentState state = getCurrentState();
+        if (state.blocks.remove(blockId) != null) {
             log.info("删除区块 [{}]", blockId);
         } else {
             log.warn("要删除的区块 [{}] 不存在", blockId);
@@ -227,9 +237,10 @@ public class DocumentContext {
      * @return 格式化的文档内容字符串
      */
     public String getAllBlocksAsString() {
+        DocumentState state = getCurrentState();
         StringBuilder sb = new StringBuilder();
         sb.append("--- 当前文档内容 ---\n");
-        for (Map.Entry<String, Block> entry : blocks.entrySet()) {
+        for (Map.Entry<String, Block> entry : state.blocks.entrySet()) {
             sb.append(String.format("[%s]: %s\n", entry.getKey(), entry.getValue().getContent()));
         }
         sb.append("--------------------\n");
@@ -242,15 +253,17 @@ public class DocumentContext {
      * @return 区块映射的副本
      */
     public Map<String, Block> getAllBlocksAsMap() {
+        DocumentState state = getCurrentState();
         // 返回一个拷贝，防止外部直接修改底层数据结构
-        return new LinkedHashMap<>(blocks);
+        return new LinkedHashMap<>(state.blocks);
     }
 
     /**
      * 清空内存
      */
     public void clearAll() {
-        blocks.clear();
+        DocumentState state = getCurrentState();
+        state.blocks.clear();
         log.debug("清空所有文档区块");
     }
 
@@ -260,7 +273,8 @@ public class DocumentContext {
      * @return 区块数量
      */
     public int getBlockCount() {
-        return blocks.size();
+        DocumentState state = getCurrentState();
+        return state.blocks.size();
     }
 
     // ========== 撤销/重做功能 ==========
@@ -272,7 +286,8 @@ public class DocumentContext {
      * @param description 操作描述
      */
     public void saveSnapshot(String operationType, String description) {
-        undoRedoService.saveSnapshot(new LinkedHashMap<>(blocks), operationType, description);
+        DocumentState state = getCurrentState();
+        state.undoRedoService.saveSnapshot(new LinkedHashMap<>(state.blocks), operationType, description);
     }
 
     /**
@@ -281,10 +296,11 @@ public class DocumentContext {
      * @return true 如果撤销成功
      */
     public boolean undo() {
-        UndoRedoService.DocumentSnapshot snapshot = undoRedoService.undo(new LinkedHashMap<>(blocks));
+        DocumentState state = getCurrentState();
+        UndoRedoService.DocumentSnapshot snapshot = state.undoRedoService.undo(new LinkedHashMap<>(state.blocks));
         if (snapshot != null) {
-            blocks.clear();
-            blocks.putAll(snapshot.getBlocks());
+            state.blocks.clear();
+            state.blocks.putAll(snapshot.getBlocks());
             log.info("撤销成功，恢复到: {}", snapshot.getDescription());
             return true;
         }
@@ -297,10 +313,11 @@ public class DocumentContext {
      * @return true 如果重做成功
      */
     public boolean redo() {
-        UndoRedoService.DocumentSnapshot snapshot = undoRedoService.redo(new LinkedHashMap<>(blocks));
+        DocumentState state = getCurrentState();
+        UndoRedoService.DocumentSnapshot snapshot = state.undoRedoService.redo(new LinkedHashMap<>(state.blocks));
         if (snapshot != null) {
-            blocks.clear();
-            blocks.putAll(snapshot.getBlocks());
+            state.blocks.clear();
+            state.blocks.putAll(snapshot.getBlocks());
             log.info("重做成功，恢复到: {}", snapshot.getDescription());
             return true;
         }
@@ -313,7 +330,8 @@ public class DocumentContext {
      * @return true 如果可以撤销
      */
     public boolean canUndo() {
-        return undoRedoService.canUndo();
+        DocumentState state = getCurrentState();
+        return state.undoRedoService.canUndo();
     }
 
     /**
@@ -322,14 +340,16 @@ public class DocumentContext {
      * @return true 如果可以重做
      */
     public boolean canRedo() {
-        return undoRedoService.canRedo();
+        DocumentState state = getCurrentState();
+        return state.undoRedoService.canRedo();
     }
 
     /**
      * 清空撤销历史
      */
     public void clearUndoHistory() {
-        undoRedoService.clearHistory();
+        DocumentState state = getCurrentState();
+        state.undoRedoService.clearHistory();
     }
 
     /**
@@ -338,8 +358,9 @@ public class DocumentContext {
      * @param newBlocks 新的区块数据
      */
     public void restoreBlocks(Map<String, Block> newBlocks) {
-        blocks.clear();
-        blocks.putAll(newBlocks);
-        log.debug("恢复文档状态，共 {} 个区块", blocks.size());
+        DocumentState state = getCurrentState();
+        state.blocks.clear();
+        state.blocks.putAll(newBlocks);
+        log.debug("恢复文档状态，共 {} 个区块", state.blocks.size());
     }
 }

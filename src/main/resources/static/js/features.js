@@ -2,6 +2,19 @@
  * 其他功能模块（语法检查、摘要生成等）
  */
 
+function resolveDocScopeHeaders(headers) {
+    if (typeof withDocScopeHeaders === 'function') {
+        return withDocScopeHeaders(headers);
+    }
+    const merged = { ...(headers || {}) };
+    const docId = typeof getCurrentDocId === 'function' ? getCurrentDocId() : 'default';
+    merged['X-Doc-Id'] = docId;
+    if (typeof getPaneSessionId === 'function') {
+        merged['X-Pane-Id'] = getPaneSessionId();
+    }
+    return merged;
+}
+
 /**
  * 打开摘要生成对话框
  */
@@ -77,12 +90,12 @@ async function generateSummary() {
     try {
         const response = await fetch('/api/summarize', {
             method: 'POST',
-            headers: {
+            headers: resolveDocScopeHeaders({
                 'Content-Type': 'application/json',
                 'X-API-Key': config.apiKey,
                 'X-Base-URL': config.baseUrl,
                 'X-Model-Name': config.modelName
-            },
+            }),
             body: JSON.stringify({
                 summaryType: summaryType,
                 maxLength: maxLength

@@ -2,6 +2,19 @@
  * 参考资料管理模块
  */
 
+function resolveDocScopeHeaders(headers) {
+    if (typeof withDocScopeHeaders === 'function') {
+        return withDocScopeHeaders(headers);
+    }
+    const merged = { ...(headers || {}) };
+    const docId = typeof getCurrentDocId === 'function' ? getCurrentDocId() : 'default';
+    merged['X-Doc-Id'] = docId;
+    if (typeof getPaneSessionId === 'function') {
+        merged['X-Pane-Id'] = getPaneSessionId();
+    }
+    return merged;
+}
+
 /**
  * 显示自定义路径输入模态框（兼容 Office.js 环境）
  */
@@ -328,7 +341,9 @@ async function uploadReferences() {
     let folderExists = false;
     let baseFolder = '';
     try {
-        const response = await fetch(`/api/references/list?docId=${encodeURIComponent(docId)}`);
+        const response = await fetch(`/api/references/list?docId=${encodeURIComponent(docId)}`, {
+            headers: resolveDocScopeHeaders({})
+        });
         const result = await response.json();
         if (result.status === 'success') {
             folderExists = result.data.folderExists || false;
@@ -398,6 +413,7 @@ async function performFileUpload(docId) {
             showLoading('正在上传文件...');
             const response = await fetch('/api/references/upload', {
                 method: 'POST',
+                headers: resolveDocScopeHeaders({}),
                 body: formData
             });
 
@@ -427,7 +443,9 @@ async function refreshReferences() {
     const docId = getCurrentDocId();
 
     try {
-        const response = await fetch(`/api/references/list?docId=${encodeURIComponent(docId)}`);
+        const response = await fetch(`/api/references/list?docId=${encodeURIComponent(docId)}`, {
+            headers: resolveDocScopeHeaders({})
+        });
         const result = await response.json();
 
         if (result.status === 'success') {
@@ -577,9 +595,9 @@ async function setCustomFolderPath(docId, customPath) {
         
         const response = await fetch('/api/references/set-custom-folder', {
             method: 'POST',
-            headers: {
+            headers: resolveDocScopeHeaders({
                 'Content-Type': 'application/json'
-            },
+            }),
             body: JSON.stringify({
                 docId: docId,
                 customPath: customPath
@@ -650,12 +668,12 @@ async function analyzeReferences() {
         const config = getApiConfig();
         const response = await fetch('/api/references/analyze', {
             method: 'POST',
-            headers: {
+            headers: resolveDocScopeHeaders({
                 'Content-Type': 'application/json',
                 'X-API-Key': config.apiKey,
                 'X-Base-URL': config.baseUrl,
                 'X-Model-Name': config.modelName
-            },
+            }),
             body: JSON.stringify(requestBody)
         });
 
