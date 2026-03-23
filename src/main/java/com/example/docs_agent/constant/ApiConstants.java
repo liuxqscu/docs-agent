@@ -27,6 +27,9 @@ public final class ApiConstants {
     public static final String HEADER_API_KEY = "X-API-Key";
     public static final String HEADER_BASE_URL = "X-Base-URL";
     public static final String HEADER_MODEL_NAME = "X-Model-Name";
+    public static final String HEADER_DOC_ID = "X-Doc-Id";
+    public static final String HEADER_PANE_ID = "X-Pane-Id";
+    public static final String HEADER_RESOLVED_SCOPE = "X-Resolved-Doc-Scope";
 
     /**
      * 区块 ID 前缀

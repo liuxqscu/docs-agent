@@ -62,6 +62,19 @@ const REVIEW_SYSTEM_MESSAGE = Object.freeze({
 let reviewDocViewMode = REVIEW_DOC_VIEW_MODE.ALL;
 let reviewDiffViewMode = REVIEW_DIFF_VIEW_MODE.FULL;
 
+function resolveDocScopeHeaders(headers) {
+    if (typeof withDocScopeHeaders === 'function') {
+        return withDocScopeHeaders(headers);
+    }
+    const merged = { ...(headers || {}) };
+    const docId = typeof getCurrentDocId === 'function' ? getCurrentDocId() : 'default';
+    merged['X-Doc-Id'] = docId;
+    if (typeof getPaneSessionId === 'function') {
+        merged['X-Pane-Id'] = getPaneSessionId();
+    }
+    return merged;
+}
+
 function getParagraphIndexFromBlockId(blockId) {
     if (idParser.parseParagraphIndexFromBlockId) {
         return idParser.parseParagraphIndexFromBlockId(blockId);
@@ -297,9 +310,18 @@ async function syncDocumentFromWordToBackend(options = {}) {
             }
         });
 
+        // 在无 URL 的 Word 场景，首次同步后将临时 docId 升级为内容指纹 docId，
+        // 防止刷新任务窗后历史会话键漂移。
+        if (typeof updateCurrentDocIdentityFromBlocks === 'function') {
+            const promoted = updateCurrentDocIdentityFromBlocks(docBlocks);
+            if (promoted && promoted.changed && typeof reloadChatHistoryForCurrentDoc === 'function') {
+                reloadChatHistoryForCurrentDoc();
+            }
+        }
+
         const initResponse = await fetch('/api/init-document', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: resolveDocScopeHeaders({ 'Content-Type': 'application/json' }),
             body: JSON.stringify(docBlocks)
         });
 
@@ -432,7 +454,7 @@ async function lockSelection() {
 
         await fetch('/api/lock-selection', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: resolveDocScopeHeaders({ 'Content-Type': 'application/json' }),
             body: JSON.stringify(requestBody)
         });
 
@@ -1147,12 +1169,12 @@ async function sendAcceptRequest(requestData, config) {
 }
 
 function buildModelRequestHeaders(config) {
-    return {
+    return resolveDocScopeHeaders({
         'Content-Type': 'application/json',
         'X-API-Key': config.apiKey,
         'X-Base-URL': config.baseUrl,
         'X-Model-Name': config.modelName
-    };
+    });
 }
 
 async function commitAcceptSuccess(changeId, change) {
@@ -1775,7 +1797,17 @@ async function handleAIModificationsAsChanges(updatedBlockIds) {
 }
 
 async function fetchServerDocumentState() {
-    const response = await fetch('/api/document');
+    const response = await fetch('/api/document', {
+        headers: resolveDocScopeHeaders({})
+    });
+    const resolvedScope = response.headers.get('X-Resolved-Doc-Scope') || 'unknown';
+    console.log(`[•] fetchServerDocumentState resolvedScope=${resolvedScope}`);
+    if (typeof setCurrentHistoryScopeFromResolvedScope === 'function') {
+        const historyScopeChanged = setCurrentHistoryScopeFromResolvedScope(resolvedScope);
+        if (historyScopeChanged && typeof reloadChatHistoryForCurrentDoc === 'function') {
+            reloadChatHistoryForCurrentDoc();
+        }
+    }
     const result = await response.json();
     return result.data || result;
 }

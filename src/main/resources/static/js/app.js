@@ -182,6 +182,10 @@ document.addEventListener('DOMContentLoaded', function() {
         // 加载会话历史
         if (typeof loadChatHistory === 'function') loadChatHistory();
 
+        if (typeof consumeDocIdMigrationFlag === 'function' && consumeDocIdMigrationFlag()) {
+            appendMessage('system', '[i] 已检测到旧版会话标识，已自动切换到新隔离模式。');
+        }
+
         // 初始化助手类型选择器
         initAgentTypeSelector();
 
@@ -201,6 +205,9 @@ document.addEventListener('DOMContentLoaded', function() {
     if (typeof Office !== 'undefined') {
         Office.onReady(async (info) => {
             if (info.host === Office.HostType.Word) {
+                if (typeof reloadChatHistoryForCurrentDoc === 'function') {
+                    reloadChatHistoryForCurrentDoc();
+                }
                 appendMessage('system', '[✓] 成功接入 Word 内部环境！');
                 setTimeout(async function () {
                     try {

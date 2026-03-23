@@ -3,9 +3,80 @@
  */
 
 // 常量定义
-const CHAT_HISTORY_KEY = 'docsAgentChatHistory';
+const CHAT_HISTORY_KEY_PREFIX = 'docsAgentChatHistory';
 const MAX_HISTORY_SIZE = 50;
 const CUSTOM_TEMPLATES_KEY = 'customCommandTemplates';
+const DOC_SCOPE_HEADER = 'X-Doc-Id';
+const DOC_PANE_ID_KEY = 'docPulsePaneId';
+
+function buildChatHistoryStorageKey(scopeId) {
+    return CHAT_HISTORY_KEY_PREFIX + ':' + String(scopeId || 'default');
+}
+
+function getCurrentHistoryScopeId() {
+    return (window.currentHistoryScopeId || '').trim();
+}
+
+function normalizeHistoryScopeId(resolvedScope) {
+    const scope = String(resolvedScope || '').trim();
+    if (!scope) {
+        return '';
+    }
+
+    if (scope.startsWith('route_')) {
+        return scope;
+    }
+
+    const match = scope.match(/route_[^\s]+_doc_[0-9a-fA-F]{8,}/);
+    return match ? match[0] : '';
+}
+
+/**
+ * 使用后端返回的 resolvedScope 做历史迁移桥接。
+ * 聊天历史仍以稳定 docId 作为主键，避免 scope 变化导致刷新后丢历史。
+ */
+function setCurrentHistoryScopeFromResolvedScope(resolvedScope) {
+    const nextScopeId = normalizeHistoryScopeId(resolvedScope);
+    if (!nextScopeId) {
+        return false;
+    }
+
+    const previousScopeId = getCurrentHistoryScopeId();
+    const stableDocKey = buildChatHistoryStorageKey(getCurrentDocId());
+    const scopeKey = buildChatHistoryStorageKey(nextScopeId);
+
+    try {
+        if (stableDocKey !== scopeKey) {
+            const docRaw = localStorage.getItem(stableDocKey);
+            const scopeRaw = localStorage.getItem(scopeKey);
+
+            // 兼容旧版：如果旧版把历史存到了 scopeKey，迁移回稳定 docKey。
+            if (scopeRaw && !docRaw) {
+                localStorage.setItem(stableDocKey, scopeRaw);
+            }
+
+            // 双写一份到 scopeKey，保证历史兼容读取。
+            if (docRaw && !scopeRaw) {
+                localStorage.setItem(scopeKey, docRaw);
+            }
+
+            // 从上一轮 scope 迁移到稳定 key。
+            if (previousScopeId && previousScopeId !== nextScopeId) {
+                const previousScopeKey = buildChatHistoryStorageKey(previousScopeId);
+                const previousScopeRaw = localStorage.getItem(previousScopeKey);
+                const latestDocRaw = localStorage.getItem(stableDocKey);
+                if (previousScopeRaw && !latestDocRaw) {
+                    localStorage.setItem(stableDocKey, previousScopeRaw);
+                }
+            }
+        }
+    } catch (e) {
+        console.warn('[!] 迁移会话历史失败:', e);
+    }
+
+    window.currentHistoryScopeId = nextScopeId;
+    return previousScopeId !== nextScopeId;
+}
 
 // 默认指令模板
 const DEFAULT_COMMAND_TEMPLATES = {
@@ -148,10 +219,125 @@ function renderMarkdown(text) {
  * 获取当前文档 ID
  */
 function getCurrentDocId() {
+    if (isLegacyTimestampDocId(window.currentDocId)) {
+        const migratedFingerprint = buildDocFingerprint();
+        window.currentDocFingerprint = migratedFingerprint;
+        window.currentDocId = createDocIdFromFingerprint(migratedFingerprint);
+        window.currentDocIdSource = isWordUrlFingerprint(migratedFingerprint) ? 'word-url' : 'ephemeral';
+        window.docIdMigrated = true;
+    }
+
     if (!window.currentDocId) {
-        window.currentDocId = 'doc_' + Date.now();
+        const fingerprint = buildDocFingerprint();
+        window.currentDocFingerprint = fingerprint;
+        window.currentDocId = createDocIdFromFingerprint(fingerprint);
+        window.currentDocIdSource = isWordUrlFingerprint(fingerprint) ? 'word-url' : 'ephemeral';
     }
     return window.currentDocId;
+}
+
+/**
+ * 获取当前文档会话历史的 localStorage 键
+ */
+function getChatHistoryStorageKey() {
+    // 历史主键固定为稳定文档 ID，避免作用域切换导致会话丢失。
+    return buildChatHistoryStorageKey(getCurrentDocId());
+}
+
+function buildDocFingerprint() {
+    const paneId = getPaneSessionId();
+    let source = 'pane:' + paneId + '|web:' + window.location.pathname;
+
+    try {
+        if (typeof Office !== 'undefined' && Office && Office.context && Office.context.document) {
+            const officeUrl = (Office.context.document.url || '').trim();
+            if (officeUrl) {
+                // 对可识别 URL 的文档，不引入 paneId，保证刷新后 docId 稳定。
+                source = 'word-url:' + officeUrl;
+            }
+        }
+    } catch (e) {
+        // ignore and fallback to web path
+    }
+
+    return source;
+}
+
+function isWordUrlFingerprint(fingerprint) {
+    return String(fingerprint || '').startsWith('word-url:');
+}
+
+function createDocIdFromFingerprint(fingerprint) {
+    const hash = simpleHash(fingerprint || 'unknown-doc');
+    return 'doc_' + hash;
+}
+
+/**
+ * 用同步得到的文档内容刷新当前文档身份（用于无 URL 场景的隔离）
+ */
+function updateCurrentDocIdentityFromBlocks(docBlocks) {
+    const currentDocId = window.currentDocId || '';
+    const currentSource = window.currentDocIdSource || '';
+    const shouldPromote = !currentDocId || currentSource === 'ephemeral';
+    if (!shouldPromote) {
+        return {
+            docId: currentDocId || getCurrentDocId(),
+            changed: false
+        };
+    }
+
+    const entries = Object.entries(docBlocks || {});
+    const normalized = entries
+        .sort((a, b) => a[0].localeCompare(b[0]))
+        .map(([blockId, text]) => `${blockId}:${String(text || '').trim()}`)
+        .join('\n');
+
+    const fingerprint = `content|count:${entries.length}|hash:${simpleHash(normalized)}`;
+    const nextDocId = createDocIdFromFingerprint(fingerprint);
+
+    try {
+        if (currentDocId && currentDocId !== nextDocId) {
+            const sourceKey = buildChatHistoryStorageKey(currentDocId);
+            const targetKey = buildChatHistoryStorageKey(nextDocId);
+            const sourceRaw = localStorage.getItem(sourceKey);
+            const targetRaw = localStorage.getItem(targetKey);
+            if (sourceRaw && !targetRaw) {
+                localStorage.setItem(targetKey, sourceRaw);
+            }
+        }
+    } catch (e) {
+        console.warn('[!] 文档ID升级时迁移历史失败:', e);
+    }
+
+    window.currentDocFingerprint = fingerprint;
+    window.currentDocId = nextDocId;
+    window.currentDocIdSource = 'content';
+    return {
+        docId: nextDocId,
+        changed: currentDocId !== nextDocId
+    };
+}
+
+function getPaneSessionId() {
+    try {
+        let paneId = sessionStorage.getItem(DOC_PANE_ID_KEY);
+        if (!paneId) {
+            paneId = `pane_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+            sessionStorage.setItem(DOC_PANE_ID_KEY, paneId);
+        }
+        return paneId;
+    } catch (e) {
+        return `pane_fallback_${Math.random().toString(36).slice(2, 8)}`;
+    }
+}
+
+function simpleHash(text) {
+    const input = String(text || '');
+    let hash = 0;
+    for (let i = 0; i < input.length; i++) {
+        hash = (hash * 31 + input.charCodeAt(i)) >>> 0;
+    }
+    return hash.toString(16).padStart(8, '0');
 }
 
 /**
@@ -159,6 +345,31 @@ function getCurrentDocId() {
  */
 function getApiConfig() {
     return JSON.parse(localStorage.getItem('aiConfig') || '{}');
+}
+
+/**
+ * 为 API 请求附加当前文档作用域头
+ */
+function withDocScopeHeaders(headers = {}) {
+    const merged = { ...headers };
+    merged[DOC_SCOPE_HEADER] = getCurrentDocId();
+    merged['X-Pane-Id'] = getPaneSessionId();
+    return merged;
+}
+
+function consumeDocIdMigrationFlag() {
+    if (window.docIdMigrated) {
+        window.docIdMigrated = false;
+        return true;
+    }
+    return false;
+}
+
+function isLegacyTimestampDocId(docId) {
+    if (!docId) {
+        return false;
+    }
+    return /^doc_\d{13,}$/.test(String(docId));
 }
 
 /**

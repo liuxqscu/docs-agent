@@ -2,12 +2,39 @@
  * 聊天功能模块
  */
 
+function resolveChatHistoryStorageKey() {
+    if (typeof getChatHistoryStorageKey === 'function') {
+        return getChatHistoryStorageKey();
+    }
+
+    const prefix = typeof CHAT_HISTORY_KEY_PREFIX !== 'undefined'
+        ? CHAT_HISTORY_KEY_PREFIX
+        : (typeof CHAT_HISTORY_KEY !== 'undefined' ? CHAT_HISTORY_KEY : 'docsAgentChatHistory');
+    const docId = typeof getCurrentDocId === 'function' ? getCurrentDocId() : 'default';
+    return `${prefix}:${docId}`;
+}
+
+function resolveDocScopeHeaders(headers) {
+    if (typeof withDocScopeHeaders === 'function') {
+        return withDocScopeHeaders(headers);
+    }
+
+    const merged = { ...(headers || {}) };
+    const docId = typeof getCurrentDocId === 'function' ? getCurrentDocId() : 'default';
+    merged['X-Doc-Id'] = docId;
+    if (typeof getPaneSessionId === 'function') {
+        merged['X-Pane-Id'] = getPaneSessionId();
+    }
+    return merged;
+}
+
 /**
  * 保存消息到 localStorage
  */
 function saveMessageToHistory(role, text) {
     try {
-        let history = JSON.parse(localStorage.getItem(CHAT_HISTORY_KEY) || '[]');
+        const storageKey = resolveChatHistoryStorageKey();
+        let history = JSON.parse(localStorage.getItem(storageKey) || '[]');
         const message = {
             role: role,
             text: text,
@@ -20,7 +47,7 @@ function saveMessageToHistory(role, text) {
             history = history.slice(-MAX_HISTORY_SIZE);
         }
         
-        localStorage.setItem(CHAT_HISTORY_KEY, JSON.stringify(history));
+        localStorage.setItem(storageKey, JSON.stringify(history));
     } catch (e) {
         console.error('保存会话历史失败:', e);
     }
@@ -31,10 +58,15 @@ function saveMessageToHistory(role, text) {
  */
 function loadChatHistory() {
     try {
-        const history = JSON.parse(localStorage.getItem(CHAT_HISTORY_KEY) || '[]');
-        if (history.length === 0) return;
-
+        const storageKey = resolveChatHistoryStorageKey();
+        const history = JSON.parse(localStorage.getItem(storageKey) || '[]');
         const historyEl = document.getElementById('chatHistory');
+
+        if (history.length === 0) {
+            historyEl.innerHTML = '<div class="message msg-system">[·] 欢迎使用 DocPulse 文脉引擎！快速选择快捷功能或输入指令编辑文档</div>';
+            return;
+        }
+
         // 清空默认欢迎消息
         historyEl.innerHTML = '';
 
@@ -66,11 +98,18 @@ function loadChatHistory() {
  */
 function clearChatHistory() {
     showCustomConfirm('确定要清空所有会话历史吗？此操作不可恢复。', function() {
-        localStorage.removeItem(CHAT_HISTORY_KEY);
+        localStorage.removeItem(resolveChatHistoryStorageKey());
         const historyEl = document.getElementById('chatHistory');
         historyEl.innerHTML = '<div class="message msg-system">[·] 欢迎使用 DocPulse 文脉引擎！快速选择快捷功能或输入指令编辑文档</div>';
         appendMessage('system', '[⌦] 会话历史已清空');
     });
+}
+
+/**
+ * 按当前文档重新加载会话历史（用于文档切换后隔离显示）
+ */
+function reloadChatHistoryForCurrentDoc() {
+    loadChatHistory();
 }
 
 /**
@@ -184,7 +223,8 @@ async function sendMessage() {
 
         const requestBody = {
             message: message,
-            agentType: agentType
+            agentType: agentType,
+            docId: getCurrentDocId()
         };
 
         if (agentType === 'custom' && customPrompt) {
@@ -193,12 +233,12 @@ async function sendMessage() {
 
         const response = await fetch('/api/chat', {
             method: 'POST',
-            headers: {
+            headers: resolveDocScopeHeaders({
                 'Content-Type': 'application/json',
                 'X-API-Key': config.apiKey,
                 'X-Base-URL': config.baseUrl,
                 'X-Model-Name': config.modelName
-            },
+            }),
             body: JSON.stringify(requestBody)
         });
 
@@ -319,12 +359,12 @@ async function analyzeReferencesFromChat(instruction, selectedFiles) {
         
         const response = await fetch('/api/references/analyze', {
             method: 'POST',
-            headers: {
+            headers: resolveDocScopeHeaders({
                 'Content-Type': 'application/json',
                 'X-API-Key': config.apiKey,
                 'X-Base-URL': config.baseUrl,
                 'X-Model-Name': config.modelName
-            },
+            }),
             body: JSON.stringify(requestBody)
         });
         
