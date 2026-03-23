@@ -4,6 +4,7 @@ DocPulse 是一个本地优先的 Word AI 协作编辑工具：
 - 后端使用 Spring Boot 提供 API 与本地 HTTPS 服务。
 - 前端是静态页面（Office.js 场景），运行在 `https://localhost:18080`。
 - 通过 Word Add-in Manifest 将侧边栏挂载到 Word。
+- 模型接入采用 OpenAI 兼容接口思路：可接入硅基流动、OpenAI、Azure OpenAI、OneAPI/火山方舟等兼容网关。
 
 本项目目标是让开发者在本机快速复现：拉代码 -> 启动服务 -> 导入 Manifest -> 在 Word 里使用。
 
@@ -34,8 +35,9 @@ DocPulse 是一个本地优先的 Word AI 协作编辑工具：
 11. 点击“确定”并完全重启 Word。
 12. 重启后进入：插入 -> 我的加载项 -> 共享文件夹，找到 DocPulse，点击“添加”。
 13. 右侧侧边栏打开后，点击右上角“设置”，填写并保存：`API Key`、`Base URL`、`Model Name`。
+14. 使用自己的服务商地址与模型 ID（详见下方“**大模型配置（重点）**”）。
 
-常见卡点（开头就处理）：
+常见卡点：
 
 1. 不知道设备名：在命令行运行 `hostname`。
 2. Word 里看不到共享目录：先在资源管理器确认 UNC 地址能直接打开，再重启 Word。
@@ -43,6 +45,83 @@ DocPulse 是一个本地优先的 Word AI 协作编辑工具：
 4. 侧边栏能打开但无法调用模型：检查 `API Key`、`Base URL`、`Model Name` 是否填写并保存。
 
 后续章节主要是开发、打包和技术细节说明。
+
+## 大模型配置（重点）
+
+这部分是最容易踩坑的地方。DocPulse 不绑定单一平台，只要你的服务满足 OpenAI 兼容调用即可。
+
+### 1. 侧边栏里三个字段分别是什么
+
+- `API Key`：服务商提供的访问凭证（不限定叫 token、apikey 或 key，本质一样）。
+- `Base URL`：模型服务根地址，通常是 `https://<host>/v1`。
+- `Model Name`：具体模型标识（模型 ID），例如 `gpt-4o-mini`、`Qwen/Qwen3.5-397B-A17B` 等。
+
+注意：
+- 这里的 `Base URL` 一般填到 `/v1` 即可，不需要手动补 `/chat/completions`。
+- `Model Name` 必须使用服务端真实可用的模型 ID，不能填展示名称。
+
+### 2. 常见平台填写示例
+
+1. 硅基流动（SiliconFlow）
+   - `API Key`：你的硅基流动 Key
+   - `Base URL`：`https://api.siliconflow.cn/v1`
+   - `Model Name`：如 `Qwen/Qwen3.5-397B-A17B`
+
+2. OpenAI 官方
+   - `API Key`：`sk-...`
+   - `Base URL`：`https://api.openai.com/v1`
+   - `Model Name`：如 `gpt-4o-mini` / `gpt-4.1-mini`
+
+3. Azure OpenAI
+   - `API Key`：Azure 资源 Key
+   - `Base URL`：你配置的网关根地址（需兼容 OpenAI 风格）
+   - `Model Name`：部署名（deployment name）
+
+4. 其他兼容网关（OneAPI、企业代理等）
+   - `API Key`：网关分配的 key
+   - `Base URL`：你的网关 `.../v1`
+   - `Model Name`：网关中可路由的模型名
+
+### 3. 如何快速判断配置是否正确
+
+1. 先点击“同步/扫全文”，确认文档状态正常。
+2. 聊天框输入一个简单问题（例如“只回复 OK”）。
+3. 若返回正常，说明 `API Key + Base URL + Model Name` 三项已打通。
+
+若失败，优先按这个顺序排查：
+1. `Base URL` 是否是可访问的 OpenAI 兼容地址（通常以 `/v1` 结尾）。
+2. `Model Name` 是否与服务商真实模型 ID 完全一致。
+3. `API Key` 是否有额度、权限、来源 IP 限制。
+4. 该模型是否支持工具调用（DocPulse 会使用工具编辑文档、联网搜索和获取时间）。
+
+### 4. 环境变量方式（开发者可选）
+
+如果你不想每次在前端手动填，也可以在启动前设置环境变量：
+
+```powershell
+$env:AI_API_KEY="your_key"
+$env:AI_BASE_URL="https://your-provider.example.com/v1"
+$env:AI_MODEL_NAME="your-model-id"
+.\mvnw.cmd spring-boot:run
+```
+
+说明：前端设置会通过请求头覆盖后端默认值，因此你可以把 `application.properties` 当默认兜底。
+
+### 5. 最小可用配置清单（复制即用）
+
+只要满足下面 3 行，DocPulse 就能工作：
+
+```text
+API Key    = <你的服务商密钥>
+Base URL   = https://<你的模型网关>/v1
+Model Name = <真实模型ID>
+```
+
+发布前自检清单：
+1. `Base URL` 能访问且是 OpenAI 兼容网关。
+2. `Model Name` 在该网关下可用（不是展示名）。
+3. 使用“只回复 OK”测试能得到正常响应。
+4. 再测试一次“联网搜索”与“当前时间”相关问题，确认工具链可用。
 
 ## 下载入口（给使用者）
 
@@ -74,6 +153,9 @@ DocPulse 是一个本地优先的 Word AI 协作编辑工具：
 - 单条与批量审阅：`accept / reject / accept-all / reject-all`。
 - `ai_selection` 多段映射策略统一到后端（避免前后端规则漂移）。
 - 结构性变更（insert/delete）后触发状态刷新，减少段落映射陈旧问题。
+- 多文档会话隔离（请求路由 + 文档上下文隔离 + 前端会话分桶）。
+- 同文档刷新后历史会话恢复（稳定 key 与迁移策略）。
+- AI 工具扩展：联网搜索与当前时间查询工具（支持时区）。
 - 本地证书自动生成（首次启动自动准备 `keystore`）。
 - Manifest 自动生成（按当前端口生成 `SourceLocation`）。
 - Windows 桌面托盘菜单与退出机制（无托盘环境有控制窗兜底）。
@@ -120,10 +202,14 @@ src/main/java/com/example/docs_agent
 │  └─ DocAgentController.java         # /api/* 入口
 ├─ service
 │  ├─ DocumentContext.java            # 文档块内存态（block map + index map）
+│  ├─ DocumentScopeContext.java       # 请求级文档作用域上下文
+│  ├─ DocumentScopeRegistry.java      # 客户端 docId 与稳定作用域映射
 │  ├─ BatchChangeService.java         # 批量审阅
 │  ├─ AiSelectionSyncService.java     # ai_selection 映射规则（后端统一）
+│  ├─ WebSearchTools.java             # 联网搜索 / 当前时间工具
 │  └─ ...
 └─ config
+   ├─ DocumentScopeFilter.java                # API 请求作用域路由
    ├─ LocalCertificateProvisioningConfig.java  # 启动前证书自动准备
    ├─ ManifestProvisioningService.java         # 启动后自动生成/更新 Manifest
    └─ DesktopTrayManager.java                  # 托盘/控制窗
@@ -238,21 +324,35 @@ scripts\stop-docsagent.bat
 - 固定端口：`server.port=18080`
 - 端口自动回退：`docpulse.server.port.auto-fallback=false`（关闭）
 - SSL keystore：`server.ssl.key-store`
-- AI 接口：
+- AI 接口（后端默认值，可被前端设置覆盖）：
   - `ai.model.api-key`
   - `ai.model.base-url`
   - `ai.model.model-name`
   - `ai.model.timeout-seconds`
   - `ai.model.summary-timeout-seconds`
+  - `ai.model.chat-memory-size`
+- AI 工具参数：
+  - `ai.tools.search-timeout-seconds`
+  - `ai.tools.search-max-results`
+- Agent 提示词策略：
+  - `agent.prompt.default-type`
+  - `agent.prompt.allow-client-override`
+  - `agent.prompt.allow-custom-prompt`
 
 可通过环境变量覆盖（示例）：
 
 ```powershell
 $env:AI_API_KEY="your_key"
-$env:AI_BASE_URL="https://api.siliconflow.cn/v1"
-$env:AI_MODEL_NAME="Qwen/Qwen3.5-397B-A17B"
+$env:AI_BASE_URL="https://your-provider.example.com/v1"
+$env:AI_MODEL_NAME="your-model-id"
 .\mvnw.cmd spring-boot:run
 ```
+
+补充说明：
+
+1. 前端“设置”中的值会在每次请求通过 Header 传递，优先级高于后端默认配置。
+2. 若你使用企业代理或网关，只要它兼容 OpenAI 调用格式，就可以直接接入。
+3. 若聊天正常但“联网搜索/当前时间”效果不稳定，可适当调大 `ai.tools.search-timeout-seconds`。
 
 ---
 
