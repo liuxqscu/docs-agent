@@ -26,14 +26,17 @@ import java.util.concurrent.ConcurrentHashMap;
 public class DocumentAgentService {
 
     private final DocumentEditorTools documentEditorTools;
+    private final WebSearchTools webSearchTools;
     private final AgentPromptConfig agentPromptConfig;
     private final AiModelConfig aiModelConfig;
     private final Map<String, Object> agentCache = new ConcurrentHashMap<>();
 
     public DocumentAgentService(DocumentEditorTools documentEditorTools,
+                                WebSearchTools webSearchTools,
                                 AgentPromptConfig agentPromptConfig,
                                 AiModelConfig aiModelConfig) {
         this.documentEditorTools = documentEditorTools;
+        this.webSearchTools = webSearchTools;
         this.agentPromptConfig = agentPromptConfig;
         this.aiModelConfig = aiModelConfig;
     }
@@ -135,7 +138,7 @@ public class DocumentAgentService {
             return AiServices.builder(DocumentAgent.class)
                     .chatLanguageModel(model)
                     .chatMemory(MessageWindowChatMemory.withMaxMessages(ApiConstants.DEFAULT_CHAT_MEMORY_SIZE))
-                    .tools(documentEditorTools)
+                    .tools(documentEditorTools, webSearchTools)
                     .build();
         });
     }
@@ -173,7 +176,7 @@ public class DocumentAgentService {
             return AiServices.builder(agentClass)
                     .chatLanguageModel(model)
                     .chatMemory(MessageWindowChatMemory.withMaxMessages(ApiConstants.DEFAULT_CHAT_MEMORY_SIZE))
-                    .tools(documentEditorTools)
+                    .tools(documentEditorTools, webSearchTools)
                     .build();
         });
     }
@@ -297,7 +300,7 @@ public class DocumentAgentService {
             CustomDocumentAgent agent = AiServices.builder(CustomDocumentAgent.class)
                     .chatLanguageModel(model)
                     .chatMemory(MessageWindowChatMemory.withMaxMessages(ApiConstants.DEFAULT_CHAT_MEMORY_SIZE))
-                    .tools(documentEditorTools)
+                    .tools(documentEditorTools, webSearchTools)
                     .build();
 
             log.debug("自定义提示词会话键: {}", customCacheKey);

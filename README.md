@@ -51,8 +51,7 @@ DocPulse 是一个本地优先的 Word AI 协作编辑工具：
 
 推荐下载顺序：
 1. 普通用户优先下载 `DocPulse-<version>-setup.exe`（Inno 安装器）
-2. 备用下载 `DocPulse-<version>.exe`（jpackage 安装器）
-3. 若安装器暂不可用，则下载 `DocPulse-<version>-app-image.zip`，解压后运行 `DocPulse.exe`
+2. 若安装器不可用或无法安装，则下载 `DocPulse-<version>-app-image.zip`，解压后运行 `DocPulse.exe`
 
 ## 版本与发布状态
 
@@ -60,7 +59,7 @@ DocPulse 是一个本地优先的 Word AI 协作编辑工具：
 | --- | --- |
 | 当前发布标签 | v1.0.0 |
 | 推荐安装资产 | DocPulse-1.0.0-setup.exe |
-| 备用安装资产 | DocPulse-1.0.0.exe |
+| 便携兜底资产 | DocPulse-1.0.0-app-image.zip |
 | 默认本地地址 | https://localhost:18080 |
 
 维护建议：每次发布后，只需更新本表中的版本号与资产文件名。
@@ -190,8 +189,9 @@ scripts\stop-docsagent.bat
 当前建议在 Release 中至少提供：
 
 - `DocPulse-<version>-setup.exe`（推荐主安装包，Inno Setup 产出）
-- `DocPulse-<version>.exe`（备用安装包，jpackage 产出）
 - `DocPulse-<version>-app-image.zip`（便携兜底，`scripts/build-release.bat` 自动压缩生成）
+
+说明：当 Inno Setup 不可用时，构建脚本会回退生成 `DocPulse-<version>.exe`（jpackage 安装器），该文件主要用于排障或临时分发，不作为默认发布资产。
 
 可将下面内容放到 Release 描述中：
 
@@ -204,15 +204,13 @@ scripts\stop-docsagent.bat
    - 安装流程更完整，目录选择体验更好
    - 适合不需要源码和构建环境的用户
 
-- 备用安装器：下载 `DocPulse-<version>.exe`
-   - 由 jpackage 直接生成
-   - 可用于排查 Inno 安装器环境差异
-
 - 通用兜底：下载并解压 `DocPulse-<version>-app-image.zip`
    - 解压后运行 `DocPulse.exe`
    - 适合便携运行或调试启动参数
 
 ### 首次启动
+
+优先使用 `DocPulse-<version>-setup.exe`；仅在安装器不可用时再使用 `DocPulse-<version>-app-image.zip`。
 
 1. 启动 DocPulse
 2. 浏览器访问 `https://localhost:18080`
