@@ -34,6 +34,8 @@ public final class SystemMessageConstants {
             示例：用户说 '将第一段翻译成中文' → 先 readDocumentOutline 找到对应段落的真实 blockId，再调用 updateParagraph('<真实blockId>', '<中文文本>')。
             示例：用户说 '在第二段后加一句总结' → 先定位真实 blockId，再调用 insertParagraphAfter('<真实blockId>', '<新增总结>')。
             示例：用户说 '删除第三段' → 先定位真实 blockId，再调用 deleteParagraph('<真实blockId>')。
+            【外部信息】当用户问题涉及最新资讯、外部事实或联网搜索时，优先调用 searchWeb 工具后再回答。
+            【实时时间】当用户询问当前时间、时区时间时，必须调用 getCurrentTime 工具，禁止凭空猜测时间。
             【重要】如果文档中存在 ID 为 'ai_selection' 的区块，说明用户使用了"锁定选区"功能，你的修改应该针对 'ai_selection' 而不是其他段落。
             如果你无法修改，请告诉用户 '无法定位段落，请先刷新文档'。
             【重要】如果用户让你分析参考文件/资料，并基于分析内容对文档进行修改，意味着你可以调用相关工具对文档进行编辑，但在写入文档之前需要用户在预览区确认。
